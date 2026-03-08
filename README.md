@@ -13,19 +13,23 @@ https://github.com/user-attachments/assets/78d04003-4b1e-4844-8115-3a2a05753723
 
 
 ## Table of Contents
-- [🔨 Installation](#-installation)
-- [🤖 Inference](#-inference)
-  - [Download Checkpoints](#download-checkpoints-a-iddownload-ckptsa)
-  - [Download Data](#download-data-a-iddownload-dataa)
-  - [Teleoperate from Keyboard](#teleoperate-from-keyboard)
-  - [Teleoperate from ALOHA Robot](#teleoperate-from-aloha-robot-a-idaloha-teleopa)
-- [🖥️ Local Interactive Demo](#️-local-interactive-demo)
-- [🏋️ Training](#️-training)
-  - [Stage 1: Autoencoder Training](#stage-1-autoencoder-training)
-  - [Stage 2: Dynamics Training](#stage-2-dynamics-training)
-  - [Stage 3: Autoencoder Finetuning](#stage-3-autoencoder-finetuning)
-- [📦 Real-World Data Collection on ALOHA](#-real-world-data-collection-on-aloha)
-- [🌎 WM Data Collection on ALOHA](#-wm-data-collection-on-aloha)
+- [Interactive World Simulator for Robot Policy Training and Evaluation](#interactive-world-simulator-for-robot-policy-training-and-evaluation)
+  - [Table of Contents](#table-of-contents)
+  - [🔨 Installation](#-installation)
+  - [🤖 Inference](#-inference)
+    - [Download Checkpoints ](#download-checkpoints-)
+    - [Download Data ](#download-data-)
+    - [Teleoperate from Keyboard](#teleoperate-from-keyboard)
+    - [Teleoperate from ALOHA Robot ](#teleoperate-from-aloha-robot-)
+  - [🖥️ Local Interactive Demo](#️-local-interactive-demo)
+  - [🏋️ Training](#️-training)
+    - [Stage 1: Autoencoder Training](#stage-1-autoencoder-training)
+    - [Stage 2: Dynamics Training](#stage-2-dynamics-training)
+    - [Stage 3: Autoencoder Finetuning](#stage-3-autoencoder-finetuning)
+    - [Empirical tips for training:](#empirical-tips-for-training)
+  - [📦 Real-World Data Collection on ALOHA](#-real-world-data-collection-on-aloha)
+  - [🌎 WM Data Collection on ALOHA](#-wm-data-collection-on-aloha)
+  - [Acknowledgements](#acknowledgements)
 
 ## 🔨 Installation
 
@@ -85,7 +89,7 @@ Alternatively, download the full [Google Drive folder](https://drive.google.com/
 bash scripts/download_mini_data.sh
 ```
 
-Downloads to `data/mini/{pusht,single_grasp,bimanual_sweep,bimanual_rope}/`. ([Google Drive](https://drive.google.com/drive/folders/1zTWiVq1SsjuxCBIt6qtlITC9Hp9a4xT1?usp=drive_link))
+Downloads to `data/mini/{pusht,single_grasp,bimanual_sweep,bimanual_rope}/`. ([Hugging Face](https://huggingface.co/datasets/yixuan1999/interactive-world-sim-min-data))
 
 **Full training dataset**:
 
@@ -93,7 +97,7 @@ Downloads to `data/mini/{pusht,single_grasp,bimanual_sweep,bimanual_rope}/`. ([G
 bash scripts/download_full_data.sh
 ```
 
-Downloads to `data/full/{pusht,single_grasp,bimanual_sweep,bimanual_rope}/`. ([Google Drive](https://drive.google.com/drive/folders/1umtKJI5TmIGxiD3TecjSwLqc9Lik5Gls?usp=drive_link))
+Downloads to `data/full/{pusht,single_grasp,bimanual_sweep,bimanual_rope,bimanual_box,single_chain_in_box}/`. ([Hugging Face](https://huggingface.co/datasets/yixuan1999/interactive-world-sim-data))
 
 ### Teleoperate from Keyboard
 
