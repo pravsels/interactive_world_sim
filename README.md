@@ -79,7 +79,7 @@ This downloads 7 checkpoints to `outputs/`, each with its Hydra config:
 
 Each directory contains `checkpoints/best.ckpt` and `.hydra/config.yaml`.
 
-Alternatively, download the full [Google Drive folder](https://drive.google.com/drive/folders/1wVvQMcGjjyCLH7aeqpeQbDsdcBWximSA?usp=sharing) manually.
+Alternatively, download from [Hugging Face](https://huggingface.co/yixuan1999/interactive-world-sim-checkpoints) manually.
 
 ### Download Data <a id="download-data"></a>
 

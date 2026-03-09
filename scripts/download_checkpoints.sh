@@ -1,42 +1,29 @@
 #!/usr/bin/env bash
-# Download pretrained checkpoints from Google Drive.
-# Usage: bash scripts/download_checkpoints.sh  (run from repo root)
+# Download pretrained checkpoints from Hugging Face Hub.
+# Usage: bash scripts/download_checkpoints_hf.sh  (run from repo root)
 #
 # Checkpoints are organized by task and camera:
-#   Directory               | Task             | Camera
-#   ------------------------|------------------|--------
-#   outputs/pusht_cam1/     | pusht            | cam1
-#   outputs/single_grasp_cam0/ | single_grasp  | cam0
-#   outputs/single_grasp_cam1/ | single_grasp  | cam1
-#   outputs/bimanual_sweep_cam0/ | bimanual_sweep | cam0
-#   outputs/bimanual_sweep_cam1/ | bimanual_sweep | cam1
-#   outputs/bimanual_rope_cam0/  | bimanual_rope  | cam0
-#   outputs/bimanual_rope_cam1/  | bimanual_rope  | cam1
+#   Directory                      | Task           | Camera
+#   -------------------------------|----------------|--------
+#   outputs/pusht_cam1/            | PushT          | cam1
+#   outputs/single_grasp_cam0/     | Single Grasp   | cam0
+#   outputs/single_grasp_cam1/     | Single Grasp   | cam1
+#   outputs/bimanual_sweep_cam0/   | Bimanual Sweep | cam0
+#   outputs/bimanual_sweep_cam1/   | Bimanual Sweep | cam1
+#   outputs/bimanual_rope_cam0/    | Bimanual Rope  | cam0
+#   outputs/bimanual_rope_cam1/    | Bimanual Rope  | cam1
 #
 # Each directory contains:
 #   checkpoints/best.ckpt   - pretrained model weights
 #   .hydra/config.yaml      - Hydra configuration used at training time
+#
+# Setup:
+#   pip install huggingface_hub
 
 set -e
 
-OUTDIR="outputs"
-mkdir -p "$OUTDIR"
+python scripts/download_checkpoints_hf.py \
+    --repo yixuan1999/interactive-world-sim-checkpoints
 
-# Check for gdown
-if ! command -v gdown &> /dev/null; then
-    echo "gdown not found. Installing..."
-    pip install gdown
-fi
-
-echo "Downloading checkpoints to $OUTDIR/ ..."
-
-# Google Drive folder ID: 1wVvQMcGjjyCLH7aeqpeQbDsdcBWximSA
-FOLDER_ID="1wVvQMcGjjyCLH7aeqpeQbDsdcBWximSA"
-
-gdown --folder "https://drive.google.com/drive/folders/${FOLDER_ID}" \
-      --output "$OUTDIR" \
-      --remaining-ok
-
-echo ""
-echo "Done. Checkpoints saved under $OUTDIR/:"
-find "$OUTDIR" -name "best.ckpt" | sort
+echo "Done. Checkpoints saved under outputs/:"
+find outputs -name "best.ckpt" | sort
