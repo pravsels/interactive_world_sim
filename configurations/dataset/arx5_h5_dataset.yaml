@@ -1,0 +1,46 @@
+defaults:
+  - base_dataset
+
+h5_path: arx5_datasets_single_wan.h5
+dataset_dir: .
+horizon: 16
+val_horizon: 16
+aug_mode: none
+skip_frame: 1
+pad_after: 7
+pad_before: 1
+seed: 42
+val_ratio: 0.1
+skip_idx: 1
+resolution: 128
+goal_sample: intermediate
+
+# ARX5 field mappings
+action_key: actions_delta
+state_key: states
+camera_key_map:
+  camera_0_color: camera_0
+  camera_1_color: camera_1
+lowdim_key_map:
+  joint_pos: states
+
+obs_keys: [camera_0_color, camera_1_color]
+low_dim_keys: []
+
+shape_meta:
+  action:
+    shape:
+      - 7
+  obs:
+    camera_0_color:
+      shape:
+        - 3 # C
+        - 128 # H
+        - 128 # W
+      type: rgb
+    camera_1_color:
+      shape:
+        - 3 # C
+        - 128 # H
+        - 128 # W
+      type: rgb
