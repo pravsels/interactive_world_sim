@@ -47,6 +47,12 @@
 - resumed from: `same run, testing numcodecs runtime fallback`
 - node: `nid010981`
 
+## Job (debug rerun)
+- job_id: `2733506`
+- submitted: `2026-03-11 12:50 UTC`
+- resumed from: `same run, with python extension bind mount`
+- node: `nid010988`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -62,6 +68,9 @@
 - 2026-03-11 12:48 UTC - job `2733422` failed in 65s, exit code `2:0`.
 - failure reason: `OSError: [Errno 30] Read-only file system` while pip writing to `${PYTHON_EXT_DIR}` from inside container.
 - fix applied: bind-mount `${PYTHON_EXT_DIR}` into container and create it before runtime install.
+- 2026-03-11 12:50 UTC - job `2733506` failed in 72s, exit code `1:0`.
+- failure reason: `RuntimeError: Found no NVIDIA driver on your system` when constructing `algorithm.dynamics`.
+- fix applied: align with working `latent_safety` pattern by loading `brics/apptainer-multi-node` and launching container through `srun --gpus=1`.
 
 ## Results
 - final step: `pending`

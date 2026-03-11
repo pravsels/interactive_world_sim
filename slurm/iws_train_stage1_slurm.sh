@@ -14,6 +14,9 @@
 
 set -euo pipefail
 
+module purge
+module load brics/apptainer-multi-node
+
 # ---- Isambard runtime paths ----
 # Keep repo on home (small), keep heavy artifacts on scratch (large).
 PROJECT_NAME="${PROJECT_NAME:-interactive_world_sim}"
@@ -91,6 +94,7 @@ echo "Started (UTC): ${start_time}"
 echo "===================================="
 
 set +e
+srun --ntasks=1 --gpus=1 --cpu-bind=cores \
 apptainer exec --nv \
   --bind "${REPO_DIR}:/workspace" \
   --bind "${DATA_DIR}:/workspace/data" \
