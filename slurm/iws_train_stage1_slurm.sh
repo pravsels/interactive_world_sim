@@ -45,8 +45,9 @@ CONFIG_NAME="$(basename "${TRAIN_CONFIG_YAML}" .yaml)"
 
 # Use WAN-format H5 on scratch by default (images + action deltas).
 # Camera convention reference: camera_0 = wrist, camera_1 = front.
-WAN_H5_PATH="${WAN_H5_PATH:-${DATA_DIR}/arx5_datasets_single_wan.h5}"
-DATASET_OVERRIDE_ARGS="${DATASET_OVERRIDE_ARGS:-dataset.h5_path=${WAN_H5_PATH}}"
+WAN_H5_PATH="${WAN_H5_PATH:-/scratch/u6cr/pravsels.u6cr/latent_safety/arx5_datasets_6Feb_26_wan224.h5}"
+WAN_H5_CONTAINER_PATH="${WAN_H5_CONTAINER_PATH:-/mnt/wan_dataset.h5}"
+DATASET_OVERRIDE_ARGS="${DATASET_OVERRIDE_ARGS:-dataset.h5_path=${WAN_H5_CONTAINER_PATH}}"
 
 # Resume helper for 1-day walltime jobs.
 # - LOAD_CKPT_PATH: absolute/local path to a checkpoint file to load.
@@ -61,6 +62,11 @@ TRAIN_CMD="python main.py --config-path ${CONFIG_DIR} --config-name ${CONFIG_NAM
 mkdir -p "${DATA_DIR}" "${OUTPUTS_DIR}" "${HF_CACHE}" \
   "${WANDB_DIR}" "${WANDB_CACHE_DIR}" "${WANDB_CONFIG_DIR}"
 
+if [[ ! -f "${WAN_H5_PATH}" ]]; then
+  echo "WAN H5 not found: ${WAN_H5_PATH}" >&2
+  exit 1
+fi
+
 echo "[$(date -Is)] starting training on $(hostname)"
 echo "TRAIN_CONFIG_YAML=${TRAIN_CONFIG_YAML}"
 echo "SIF_PATH=${SIF_PATH}"
@@ -69,6 +75,7 @@ echo "SCRATCH_ROOT=${SCRATCH_ROOT}"
 echo "DATA_DIR=${DATA_DIR}"
 echo "OUTPUTS_DIR=${OUTPUTS_DIR}"
 echo "WAN_H5_PATH=${WAN_H5_PATH}"
+echo "WAN_H5_CONTAINER_PATH=${WAN_H5_CONTAINER_PATH}"
 echo "CONFIG_NAME=${CONFIG_NAME}"
 if [[ -n "${LOAD_CKPT_PATH:-}" ]]; then
   echo "LOAD_CKPT_PATH=${LOAD_CKPT_PATH}"
@@ -85,6 +92,7 @@ set +e
 apptainer exec --nv \
   --bind "${REPO_DIR}:/workspace" \
   --bind "${DATA_DIR}:/workspace/data" \
+  --bind "${WAN_H5_PATH}:${WAN_H5_CONTAINER_PATH}" \
   --bind "${OUTPUTS_DIR}:/workspace/outputs" \
   --bind "${HF_CACHE}:/root/.cache/huggingface" \
   --bind "${WANDB_DIR}:${WANDB_DIR}" \
