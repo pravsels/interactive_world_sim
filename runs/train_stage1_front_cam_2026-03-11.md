@@ -59,6 +59,12 @@
 - resumed from: `same run, switched to srun + apptainer module pattern`
 - node: `nid010958`
 
+## Job (fresh run)
+- job_id: `2733840`
+- submitted: `2026-03-11 13:03 UTC`
+- resumed from: `clean submission after canceling previous queued/running jobs`
+- node: `nid010635`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -80,6 +86,9 @@
 - 2026-03-11 12:53 UTC - job `2733619` failed in 22s, exit code `1:0` with same NVIDIA driver error.
 - root-cause hypothesis: `LD_LIBRARY_PATH` override removed Apptainer/NVIDIA injected libs path.
 - fix applied: preserve existing `LD_LIBRARY_PATH` and prepend required CUDA/system paths.
+- 2026-03-11 13:01 UTC - committed/pushed `configurations/isambard_train.yaml` update: `experiment.training.batch_size=16` (`stage1 batch 16`).
+- 2026-03-11 13:03 UTC - canceled old jobs and submitted clean run as `2733840`.
+- 2026-03-11 13:06 UTC - verification on Isambard for `2733840`: job is `RUNNING` on `nid010635` (`squeue`/`sacct`), and live GPU sample via `srun --jobid=2733840 --overlap nvidia-smi` reports `59342 MiB / 97871 MiB` used.
 
 ## Results
 - final step: `pending`
