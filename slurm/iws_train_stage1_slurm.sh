@@ -29,6 +29,7 @@ HF_CACHE="${HF_CACHE:-${SCRATCH_ROOT}/huggingface_cache}"
 WANDB_DIR="${WANDB_DIR:-${SCRATCH_ROOT}/wandb}"
 WANDB_CACHE_DIR="${WANDB_CACHE_DIR:-${SCRATCH_ROOT}/wandb_cache}"
 WANDB_CONFIG_DIR="${WANDB_CONFIG_DIR:-${SCRATCH_ROOT}/wandb_config}"
+PYTHON_EXT_DIR="${PYTHON_EXT_DIR:-${SCRATCH_ROOT}/python_packages}"
 
 # ---- Train params are loaded from YAML ----
 # Override path with:
@@ -60,7 +61,7 @@ TRAIN_EXTRA_ARGS="${TRAIN_EXTRA_ARGS:-}"
 TRAIN_CMD="python main.py --config-path ${CONFIG_DIR} --config-name ${CONFIG_NAME} ${DATASET_OVERRIDE_ARGS} ${LOAD_ARGS} ${TRAIN_EXTRA_ARGS}"
 
 mkdir -p "${DATA_DIR}" "${OUTPUTS_DIR}" "${HF_CACHE}" \
-  "${WANDB_DIR}" "${WANDB_CACHE_DIR}" "${WANDB_CONFIG_DIR}"
+  "${WANDB_DIR}" "${WANDB_CACHE_DIR}" "${WANDB_CONFIG_DIR}" "${PYTHON_EXT_DIR}"
 
 if [[ ! -f "${WAN_H5_PATH}" ]]; then
   echo "WAN H5 not found: ${WAN_H5_PATH}" >&2
@@ -76,6 +77,7 @@ echo "DATA_DIR=${DATA_DIR}"
 echo "OUTPUTS_DIR=${OUTPUTS_DIR}"
 echo "WAN_H5_PATH=${WAN_H5_PATH}"
 echo "WAN_H5_CONTAINER_PATH=${WAN_H5_CONTAINER_PATH}"
+echo "PYTHON_EXT_DIR=${PYTHON_EXT_DIR}"
 echo "CONFIG_NAME=${CONFIG_NAME}"
 if [[ -n "${LOAD_CKPT_PATH:-}" ]]; then
   echo "LOAD_CKPT_PATH=${LOAD_CKPT_PATH}"
@@ -105,6 +107,9 @@ apptainer exec --nv \
     export WANDB_DIR=${WANDB_DIR} && \
     export WANDB_CACHE_DIR=${WANDB_CACHE_DIR} && \
     export WANDB_CONFIG_DIR=${WANDB_CONFIG_DIR} && \
+    export PYTHONPATH=${PYTHON_EXT_DIR}:/workspace:\$PYTHONPATH && \
+    python -c 'from numcodecs.blosc import cbuffer_sizes' >/dev/null 2>&1 || \
+      python -m pip install --upgrade --no-deps --target ${PYTHON_EXT_DIR} numcodecs==0.11.0 && \
     ${TRAIN_CMD}"
 EXIT_CODE=$?
 set -e

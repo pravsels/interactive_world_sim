@@ -30,12 +30,29 @@
 - resumed from: `same run, fixed config path resolution (no checkpoint load)`
 - node: `nid010985`
 
+## Job (debug rerun)
+- job_id: `2733054`
+- submitted: `2026-03-11 12:38 UTC`
+- resumed from: `same run, fixed GLIBC/OpenCV lib path in container`
+
+## Job (debug rerun)
+- job_id: `2733207`
+- submitted: `2026-03-11 12:41 UTC`
+- resumed from: `same run, validating runtime after previous fix`
+- node: `nid010949`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
 - failure reason: `Training config yaml not found: /var/spool/slurmd/job.../../configurations/isambard_train.yaml`
 - fix applied: default `TRAIN_CONFIG_YAML` now resolves from `REPO_DIR/configurations/isambard_train.yaml` instead of script directory.
-- 2026-03-11 12:32 UTC - resubmitted as job `2732865`; current state: `RUNNING` on `nid010985`.
+- 2026-03-11 12:32 UTC - job `2732865` failed, exit code `1:0`.
+- failure reason: `ImportError: ... GLIBC_2.38 not found` from OpenCV dependency chain.
+- fix applied: set `LD_LIBRARY_PATH` inside `apptainer exec` runtime before launching training.
+- 2026-03-11 12:38 UTC - job `2733054` failed, exit code `1:0` (follow-up debug run).
+- 2026-03-11 12:41 UTC - job `2733207` failed in 18s, exit code `1:0`.
+- failure reason: `ImportError: cannot import name 'cbuffer_sizes' from 'numcodecs.blosc'` (zarr/numcodecs API mismatch).
+- fix applied: slurm script now prepends scratch `PYTHON_EXT_DIR` via `PYTHONPATH` and installs `numcodecs==0.11.0` there only when needed.
 
 ## Results
 - final step: `pending`
