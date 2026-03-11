@@ -9,7 +9,9 @@ and the `LICENSE` file to credit the author.
 import subprocess
 import sys
 import time
+from importlib.util import find_spec
 from pathlib import Path
+from platform import machine
 
 import hydra
 import numpy as np
@@ -21,6 +23,27 @@ from interactive_world_sim.utils.ckpt_utils import download_latest_checkpoint, i
 from interactive_world_sim.utils.cluster_utils import submit_slurm_job
 from interactive_world_sim.utils.distributed_utils import is_rank_zero
 from interactive_world_sim.utils.print_utils import cyan
+
+
+def warn_missing_optional_arch_deps() -> None:
+    """Warn when running on arm64 without optional x86-only dependencies."""
+    if machine().lower() not in {"arm64", "aarch64"}:
+        return
+
+    missing = []
+    for package in ("decord", "sapien"):
+        if find_spec(package) is None:
+            missing.append(package)
+
+    if not missing:
+        return
+
+    pkg_str = ", ".join(missing)
+    print(
+        cyan("ARM64 optional dependency notice:"),
+        f"{pkg_str} not installed. Features that require these packages will fail "
+        "when used.",
+    )
 
 
 def run_local(cfg: DictConfig) -> None:
@@ -174,6 +197,8 @@ def run_slurm(cfg: DictConfig) -> None:
     config_name="config",
 )
 def run(cfg: DictConfig) -> None:
+    warn_missing_optional_arch_deps()
+
     if "_on_compute_node" in cfg and cfg.cluster.is_compute_node_offline:
         with open_dict(cfg):
             if cfg.cluster.is_compute_node_offline and cfg.wandb.mode == "online":

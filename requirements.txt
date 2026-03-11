@@ -4,7 +4,7 @@ augmax==0.4.1
 av==16.0.1
 beartype==0.19.0
 crafter==1.8.3
-decord==0.6.0
+decord==0.6.0 ; platform_machine == "x86_64"
 deepdiff==8.6.1
 diffusers==0.29.2
 dill==0.3.9
@@ -36,13 +36,14 @@ mujoco==3.3.0
 natsort==8.4.0
 ninjax==3.6.0
 numpy==1.26.4
-numcodecs==0.11.0
+numcodecs==0.16.5
 numpydantic>=1.6.6
 onnx==1.17.0
 onnxruntime==1.21.1
 omegaconf==2.3.0
 open-clip-torch==2.7.0
-open3d==0.19.0
+open3d==0.18.0 ; platform_machine == "aarch64" or platform_machine == "arm64"
+open3d==0.19.0 ; platform_machine == "x86_64"
 opencv-contrib-python==4.10.0.84
 opencv-python==4.10.0.84
 orbax-checkpoint==0.11.13
@@ -52,7 +53,7 @@ portal==3.7.3
 pygame==2.6.1
 pymunk==6.10.0
 pynput==1.6.0
-pyrealsense2==2.55.1.6486
+pyrealsense2==2.55.1.6486 ; platform_machine == "x86_64"
 pytest==9.0.2
 pytools==2025.2.5
 pyzmq==26.2.0
@@ -60,7 +61,7 @@ regex==2024.11.6
 rospkg==1.6.0
 rotary_embedding_torch==0.8.6
 ruamel.yaml==0.17.4
-sapien==2.2.2
+sapien==2.2.2 ; platform_machine == "x86_64"
 scope==0.6.3
 sentencepiece==0.2.1
 serial==0.0.97
@@ -71,10 +72,10 @@ tensorrt-dispatch-cu12==10.9.0.34
 tensorrt-lean-cu12==10.9.0.34
 termcolor==3.3.0
 timm==0.9.7
-torch==2.7.1+cu126
-torchcodec==0.4.0
+torch==2.10.0+cu126
+torchcodec==0.10.0+cu126
 torchmetrics[image]==1.0.3
-torchvision==0.22.1+cu126
+torchvision==0.25.0+cu126
 tqdm-loggable==0.2
 transformers==4.57.3
 transforms3d==0.4.2

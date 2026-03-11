@@ -18,12 +18,16 @@ goal_sample: intermediate
 # ARX5 field mappings
 action_key: actions_delta
 state_key: states
+# Camera convention in WAN-style H5:
+# - camera_0 = wrist
+# - camera_1 = front
 camera_key_map:
   camera_0_color: camera_0
   camera_1_color: camera_1
 lowdim_key_map:
   joint_pos: states
 
+# camera_0_color -> wrist, camera_1_color -> front
 obs_keys: [camera_0_color, camera_1_color]
 low_dim_keys: []
 

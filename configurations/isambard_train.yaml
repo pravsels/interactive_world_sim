@@ -1,0 +1,42 @@
+# Hydra config loaded directly by python main.py
+defaults:
+  - config
+  - override experiment: exp_latent_dyn
+  - override dataset: arx5_h5_dataset
+  - override algorithm: latent_world_model
+  - _self_
+
+name: pusht_stage_1
+
+wandb:
+  entity: your_wandb_entity
+  project: interactive_world_sim
+  mode: offline
+
+dataset:
+  # h5_path is injected at submit time by slurm script (WAN_H5_PATH -> dataset.h5_path).
+  # Camera convention: camera_0_color = wrist, camera_1_color = front.
+  horizon: 1
+  val_horizon: 1
+  obs_keys: [camera_1_color]
+
+experiment:
+  training:
+    batch_size: 1
+    max_steps: 1000005
+    log_every_n_steps: 100
+    checkpointing:
+      # Save frequently enough to safely resume across 1-day walltime interruptions.
+      every_n_train_steps: 2000
+  validation:
+    limit_batch: 1.0
+    batch_size: 10
+    val_every_n_step: 6000
+
+algorithm:
+  latent_dim: 512
+  action_dim: 7
+  training_stage: 1
+
+# Resume option is set at submit time from slurm script env vars:
+# - LOAD_CKPT_PATH=/scratch/.../outputs/.../checkpoints/last.ckpt

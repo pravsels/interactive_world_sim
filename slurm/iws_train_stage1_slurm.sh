@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=iws-train-stage1
+#SBATCH --partition=workq
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --gpus=1
+#SBATCH --mem=0G
+#SBATCH --exclusive
+#SBATCH --time=1-00:00:00
+#SBATCH --output=slurm-%j.out
+#SBATCH --error=slurm-%j.err
+#SBATCH --requeue
+
+set -euo pipefail
+
+# ---- Isambard runtime paths ----
+# Keep repo on home (small), keep heavy artifacts on scratch (large).
+PROJECT_NAME="${PROJECT_NAME:-interactive_world_sim}"
+PROJECT_CODE="${PROJECT_CODE:-u6cr}"
+REPO_DIR="${REPO_DIR:-$HOME/${PROJECT_NAME}}"
+SCRATCH_ROOT="${SCRATCH_ROOT:-/scratch/${PROJECT_CODE}/${USER}/${PROJECT_NAME}}"
+
+# Scratch-backed paths for heavy files.
+SIF_PATH="${SIF_PATH:-${SCRATCH_ROOT}/containers/interactive-world-sim_isambard-arm64.sif}"
+DATA_DIR="${DATA_DIR:-${SCRATCH_ROOT}/data}"
+OUTPUTS_DIR="${OUTPUTS_DIR:-${SCRATCH_ROOT}/outputs}"
+HF_CACHE="${HF_CACHE:-${SCRATCH_ROOT}/huggingface_cache}"
+WANDB_DIR="${WANDB_DIR:-${SCRATCH_ROOT}/wandb}"
+WANDB_CACHE_DIR="${WANDB_CACHE_DIR:-${SCRATCH_ROOT}/wandb_cache}"
+WANDB_CONFIG_DIR="${WANDB_CONFIG_DIR:-${SCRATCH_ROOT}/wandb_config}"
+
+# ---- Train params are loaded from YAML ----
+# Override path with:
+#   sbatch --export=ALL,TRAIN_CONFIG_YAML=/path/to/configurations/isambard_train.yaml slurm/iws_train_stage1_slurm.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TRAIN_CONFIG_YAML="${TRAIN_CONFIG_YAML:-${SCRIPT_DIR}/../configurations/isambard_train.yaml}"
+if [[ ! -f "${TRAIN_CONFIG_YAML}" ]]; then
+  echo "Training config yaml not found: ${TRAIN_CONFIG_YAML}" >&2
+  exit 1
+fi
+
+CONFIG_DIR="$(dirname "${TRAIN_CONFIG_YAML}")"
+CONFIG_NAME="$(basename "${TRAIN_CONFIG_YAML}" .yaml)"
+
+# Use WAN-format H5 on scratch by default (images + action deltas).
+# Camera convention reference: camera_0 = wrist, camera_1 = front.
+WAN_H5_PATH="${WAN_H5_PATH:-${DATA_DIR}/arx5_datasets_single_wan.h5}"
+DATASET_OVERRIDE_ARGS="${DATASET_OVERRIDE_ARGS:-dataset.h5_path=${WAN_H5_PATH}}"
+
+# Resume helper for 1-day walltime jobs.
+# - LOAD_CKPT_PATH: absolute/local path to a checkpoint file to load.
+LOAD_ARGS=""
+if [[ -n "${LOAD_CKPT_PATH:-}" ]]; then
+  LOAD_ARGS="${LOAD_ARGS} load=${LOAD_CKPT_PATH}"
+fi
+
+TRAIN_EXTRA_ARGS="${TRAIN_EXTRA_ARGS:-}"
+TRAIN_CMD="python main.py --config-path ${CONFIG_DIR} --config-name ${CONFIG_NAME} ${DATASET_OVERRIDE_ARGS} ${LOAD_ARGS} ${TRAIN_EXTRA_ARGS}"
+
+mkdir -p "${DATA_DIR}" "${OUTPUTS_DIR}" "${HF_CACHE}" \
+  "${WANDB_DIR}" "${WANDB_CACHE_DIR}" "${WANDB_CONFIG_DIR}"
+
+echo "[$(date -Is)] starting training on $(hostname)"
+echo "TRAIN_CONFIG_YAML=${TRAIN_CONFIG_YAML}"
+echo "SIF_PATH=${SIF_PATH}"
+echo "REPO_DIR=${REPO_DIR}"
+echo "SCRATCH_ROOT=${SCRATCH_ROOT}"
+echo "DATA_DIR=${DATA_DIR}"
+echo "OUTPUTS_DIR=${OUTPUTS_DIR}"
+echo "WAN_H5_PATH=${WAN_H5_PATH}"
+echo "CONFIG_NAME=${CONFIG_NAME}"
+if [[ -n "${LOAD_CKPT_PATH:-}" ]]; then
+  echo "LOAD_CKPT_PATH=${LOAD_CKPT_PATH}"
+fi
+
+start_time="$(date -Is --utc)"
+echo "===================================="
+echo "Job ID: ${SLURM_JOB_ID:-local}"
+echo "Node: ${SLURM_NODELIST:-$(hostname)}"
+echo "Started (UTC): ${start_time}"
+echo "===================================="
+
+set +e
+apptainer exec --nv \
+  --bind "${REPO_DIR}:/workspace" \
+  --bind "${DATA_DIR}:/workspace/data" \
+  --bind "${OUTPUTS_DIR}:/workspace/outputs" \
+  --bind "${HF_CACHE}:/root/.cache/huggingface" \
+  --bind "${WANDB_DIR}:${WANDB_DIR}" \
+  --bind "${WANDB_CACHE_DIR}:${WANDB_CACHE_DIR}" \
+  --bind "${WANDB_CONFIG_DIR}:${WANDB_CONFIG_DIR}" \
+  "${SIF_PATH}" \
+  bash -lc "cd /workspace && \
+    export HF_HOME=/root/.cache/huggingface && \
+    export WANDB_DIR=${WANDB_DIR} && \
+    export WANDB_CACHE_DIR=${WANDB_CACHE_DIR} && \
+    export WANDB_CONFIG_DIR=${WANDB_CONFIG_DIR} && \
+    ${TRAIN_CMD}"
+EXIT_CODE=$?
+set -e
+
+end_time="$(date -Is --utc)"
+echo ""
+echo "===================================="
+echo "Started (UTC):  ${start_time}"
+echo "Finished (UTC): ${end_time}"
+echo "Exit Code: ${EXIT_CODE}"
+echo "===================================="
+
+if [ "${EXIT_CODE}" -ne 0 ]; then
+  echo ""
+  echo "ERROR: Training failed with exit code ${EXIT_CODE}"
+  echo "Check slurm-${SLURM_JOB_ID}.err for details"
+  exit "${EXIT_CODE}"
+fi

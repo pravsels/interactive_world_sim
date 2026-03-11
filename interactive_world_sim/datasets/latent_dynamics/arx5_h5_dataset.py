@@ -71,7 +71,12 @@ def _running_stats_finalize(
 
 
 class Arx5H5Dataset(BaseImageDataset):
-    """Stream trajectories directly from a single ARX5 HDF5 file."""
+    """Stream trajectories directly from a single ARX5 HDF5 file.
+
+    Camera convention for WAN-style ARX5 H5 files:
+    - ``camera_0`` is wrist
+    - ``camera_1`` is front
+    """
 
     def __init__(self, cfg: DictConfig) -> None:
         super().__init__()
@@ -122,7 +127,21 @@ class Arx5H5Dataset(BaseImageDataset):
         self.rgb_keys: List[str] = []
         self.depth_keys: List[str] = []
         self.lowdim_keys: List[str] = []
+        selected_obs_keys = (
+            list(cfg.obs_keys) if "obs_keys" in cfg and cfg.obs_keys is not None else None
+        )
+        if selected_obs_keys is not None:
+            unknown_obs_keys = [
+                key for key in selected_obs_keys if key not in self.shape_meta["obs"]
+            ]
+            if unknown_obs_keys:
+                raise KeyError(
+                    f"obs_keys contains keys missing from shape_meta.obs: {unknown_obs_keys}"
+                )
+
         for key, attr in self.shape_meta["obs"].items():
+            if selected_obs_keys is not None and key not in selected_obs_keys:
+                continue
             key_type = attr.get("type", "low_dim")
             if key_type == "rgb":
                 self.rgb_keys.append(key)
