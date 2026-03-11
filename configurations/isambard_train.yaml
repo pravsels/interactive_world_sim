@@ -22,7 +22,7 @@ dataset:
 
 experiment:
   training:
-    batch_size: 1
+    batch_size: 16
     max_steps: 1000005
     log_every_n_steps: 100
     checkpointing:
