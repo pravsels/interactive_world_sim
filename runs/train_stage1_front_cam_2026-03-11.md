@@ -19,13 +19,23 @@
   - walltime: `1-00:00:00`
 
 ## Job
-- job_id: `pending`
-- submitted: `pending`
-- node: `pending`
+- job_id: `2732782` (first submission)
+- submitted: `2026-03-11 12:31 UTC`
+- node: `nid010979`
 - submit command: `sbatch slurm/iws_train_stage1_slurm.sh`
+
+## Job (resumed)
+- job_id: `2732865`
+- submitted: `2026-03-11 12:32 UTC`
+- resumed from: `same run, fixed config path resolution (no checkpoint load)`
+- node: `nid010985`
 
 ## Status
 - 2026-03-11 - prepared run log before first submission.
+- 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
+- failure reason: `Training config yaml not found: /var/spool/slurmd/job.../../configurations/isambard_train.yaml`
+- fix applied: default `TRAIN_CONFIG_YAML` now resolves from `REPO_DIR/configurations/isambard_train.yaml` instead of script directory.
+- 2026-03-11 12:32 UTC - resubmitted as job `2732865`; current state: `RUNNING` on `nid010985`.
 
 ## Results
 - final step: `pending`

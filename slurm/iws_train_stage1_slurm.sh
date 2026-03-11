@@ -33,8 +33,8 @@ WANDB_CONFIG_DIR="${WANDB_CONFIG_DIR:-${SCRATCH_ROOT}/wandb_config}"
 # ---- Train params are loaded from YAML ----
 # Override path with:
 #   sbatch --export=ALL,TRAIN_CONFIG_YAML=/path/to/configurations/isambard_train.yaml slurm/iws_train_stage1_slurm.sh
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TRAIN_CONFIG_YAML="${TRAIN_CONFIG_YAML:-${SCRIPT_DIR}/../configurations/isambard_train.yaml}"
+# NOTE: default uses REPO_DIR because sbatch runs scripts from Slurm spool paths.
+TRAIN_CONFIG_YAML="${TRAIN_CONFIG_YAML:-${REPO_DIR}/configurations/isambard_train.yaml}"
 if [[ ! -f "${TRAIN_CONFIG_YAML}" ]]; then
   echo "Training config yaml not found: ${TRAIN_CONFIG_YAML}" >&2
   exit 1
@@ -100,6 +100,7 @@ apptainer exec --nv \
   --bind "${WANDB_CONFIG_DIR}:${WANDB_CONFIG_DIR}" \
   "${SIF_PATH}" \
   bash -lc "cd /workspace && \
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/lib:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu && \
     export HF_HOME=/root/.cache/huggingface && \
     export WANDB_DIR=${WANDB_DIR} && \
     export WANDB_CACHE_DIR=${WANDB_CACHE_DIR} && \
