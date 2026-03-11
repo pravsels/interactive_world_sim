@@ -100,6 +100,7 @@ apptainer exec --nv \
   --bind "${WANDB_DIR}:${WANDB_DIR}" \
   --bind "${WANDB_CACHE_DIR}:${WANDB_CACHE_DIR}" \
   --bind "${WANDB_CONFIG_DIR}:${WANDB_CONFIG_DIR}" \
+  --bind "${PYTHON_EXT_DIR}:${PYTHON_EXT_DIR}" \
   "${SIF_PATH}" \
   bash -lc "cd /workspace && \
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/lib:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu && \
@@ -107,6 +108,7 @@ apptainer exec --nv \
     export WANDB_DIR=${WANDB_DIR} && \
     export WANDB_CACHE_DIR=${WANDB_CACHE_DIR} && \
     export WANDB_CONFIG_DIR=${WANDB_CONFIG_DIR} && \
+    mkdir -p ${PYTHON_EXT_DIR} && \
     export PYTHONPATH=${PYTHON_EXT_DIR}:/workspace:\$PYTHONPATH && \
     python -c 'from numcodecs.blosc import cbuffer_sizes' >/dev/null 2>&1 || \
       python -m pip install --upgrade --no-deps --target ${PYTHON_EXT_DIR} numcodecs==0.11.0 && \

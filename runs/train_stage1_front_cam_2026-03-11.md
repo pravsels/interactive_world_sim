@@ -41,6 +41,12 @@
 - resumed from: `same run, validating runtime after previous fix`
 - node: `nid010949`
 
+## Job (debug rerun)
+- job_id: `2733422`
+- submitted: `2026-03-11 12:48 UTC`
+- resumed from: `same run, testing numcodecs runtime fallback`
+- node: `nid010981`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -53,6 +59,9 @@
 - 2026-03-11 12:41 UTC - job `2733207` failed in 18s, exit code `1:0`.
 - failure reason: `ImportError: cannot import name 'cbuffer_sizes' from 'numcodecs.blosc'` (zarr/numcodecs API mismatch).
 - fix applied: slurm script now prepends scratch `PYTHON_EXT_DIR` via `PYTHONPATH` and installs `numcodecs==0.11.0` there only when needed.
+- 2026-03-11 12:48 UTC - job `2733422` failed in 65s, exit code `2:0`.
+- failure reason: `OSError: [Errno 30] Read-only file system` while pip writing to `${PYTHON_EXT_DIR}` from inside container.
+- fix applied: bind-mount `${PYTHON_EXT_DIR}` into container and create it before runtime install.
 
 ## Results
 - final step: `pending`
