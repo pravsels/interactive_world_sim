@@ -53,6 +53,12 @@
 - resumed from: `same run, with python extension bind mount`
 - node: `nid010988`
 
+## Job (debug rerun)
+- job_id: `2733619`
+- submitted: `2026-03-11 12:53 UTC`
+- resumed from: `same run, switched to srun + apptainer module pattern`
+- node: `nid010958`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -71,6 +77,9 @@
 - 2026-03-11 12:50 UTC - job `2733506` failed in 72s, exit code `1:0`.
 - failure reason: `RuntimeError: Found no NVIDIA driver on your system` when constructing `algorithm.dynamics`.
 - fix applied: align with working `latent_safety` pattern by loading `brics/apptainer-multi-node` and launching container through `srun --gpus=1`.
+- 2026-03-11 12:53 UTC - job `2733619` failed in 22s, exit code `1:0` with same NVIDIA driver error.
+- root-cause hypothesis: `LD_LIBRARY_PATH` override removed Apptainer/NVIDIA injected libs path.
+- fix applied: preserve existing `LD_LIBRARY_PATH` and prepend required CUDA/system paths.
 
 ## Results
 - final step: `pending`

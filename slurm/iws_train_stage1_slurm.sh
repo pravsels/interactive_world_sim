@@ -107,7 +107,7 @@ apptainer exec --nv \
   --bind "${PYTHON_EXT_DIR}:${PYTHON_EXT_DIR}" \
   "${SIF_PATH}" \
   bash -lc "cd /workspace && \
-    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/lib:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu && \
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/lib:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu:\$LD_LIBRARY_PATH && \
     export HF_HOME=/root/.cache/huggingface && \
     export WANDB_DIR=${WANDB_DIR} && \
     export WANDB_CACHE_DIR=${WANDB_CACHE_DIR} && \
