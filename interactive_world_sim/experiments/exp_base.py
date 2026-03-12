@@ -183,6 +183,13 @@ class BaseLightningExperiment(BaseExperiment):
                 print(f"[manual_torch debug] step={step_idx} before_cuda_sync", flush=True)
                 torch.cuda.synchronize()
                 print(f"[manual_torch debug] step={step_idx} after_cuda_sync", flush=True)
+
+                # Test 1: backward on a fresh local scalar (no model involvement)
+                probe = torch.tensor(1.0, device="cuda", requires_grad=True)
+                print(f"[manual_torch debug] step={step_idx} probe_backward_start", flush=True)
+                probe.backward()
+                print(f"[manual_torch debug] step={step_idx} probe_backward_done grad={probe.grad}", flush=True)
+
                 print(f"[manual_torch debug] step={step_idx} before_backward loss_shape={loss.shape} grad_fn={loss.grad_fn}", flush=True)
                 loss.backward()
                 print(f"[manual_torch debug] step={step_idx} after_backward", flush=True)
