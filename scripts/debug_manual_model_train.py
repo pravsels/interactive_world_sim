@@ -47,46 +47,35 @@ def main() -> None:
     print("CUDA_LAUNCH_BLOCKING", os.environ.get("CUDA_LAUNCH_BLOCKING", "unset"), flush=True)  # noqa: E501
     print("cudnn_version", torch.backends.cudnn.version(), flush=True)
 
+    print("building experiment...", flush=True)
     exp = build_experiment(cfg, logger=None, ckpt_path=None)
+    print("building algo...", flush=True)
     model = exp._build_algo()
-
+    print("building training loader...", flush=True)
     train_loader = exp._build_training_loader()
     assert train_loader is not None, "Training dataloader is None."
+    print("setting normalizer...", flush=True)
     if hasattr(model, "set_normalizer"):
         model.set_normalizer(train_loader.dataset.get_normalizer())  # type: ignore[attr-defined]
-
+    print("moving model to device...", flush=True)
     model = model.to(device)
     model.train()
-
-    # Avoid Lightning logger/trainer requirements in manual loop mode.
     model.log = lambda *args, **kwargs: None  # type: ignore[attr-defined]
     model.log_dict = lambda *args, **kwargs: None  # type: ignore[attr-defined]
+    print("on_train_start...", flush=True)
     model.on_train_start()
-
+    print("configure_optimizers...", flush=True)
     optim_bundle = model.configure_optimizers()
     optimizer = optim_bundle["optimizer"]
+    print("init done, starting training loop", flush=True)
 
-    # Phase 1: test autograd BEFORE any model forward
-    probe_pre = torch.tensor(1.0, device=device, requires_grad=True)
-    (probe_pre * 1.0).backward()
-    print("phase1_pre_forward_probe OK", flush=True)
-
-    # Phase 2: test Conv2d backward with model's encoder
-    dummy_img = torch.randn(1, 3, 224, 224, device=device)
-    enc_out = model.encoder(dummy_img)
-    enc_out.mean().backward()
-    print(f"phase2_encoder_backward OK shape={enc_out.shape}", flush=True)
-    model.zero_grad()
-
-    # Phase 3: full training_step forward + backward
-    start = time.time()
     for step, batch in enumerate(train_loader):
         if step >= 1:
             break
         batch = _to_device(batch, device)
         optimizer.zero_grad(set_to_none=True)
         out = model.training_step(batch, step)
-        assert isinstance(out, dict) and "loss" in out, "training_step did not return loss"
+        assert isinstance(out, dict) and "loss" in out
         loss = out["loss"]
         print(f"step={step} forward_done loss={float(loss.detach().cpu()):.6f}", flush=True)
         torch.cuda.synchronize()
