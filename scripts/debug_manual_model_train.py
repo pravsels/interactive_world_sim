@@ -1,3 +1,9 @@
+"""Standalone training smoke test — runs a few steps outside Lightning.
+
+Usage (inside container on Isambard):
+    python scripts/debug_manual_model_train.py
+"""
+
 import os
 import time
 from pathlib import Path
@@ -12,6 +18,8 @@ OmegaConf.register_new_resolver("eval", lambda expr: eval(expr, {"np": np}))
 OmegaConf.register_new_resolver("torch", lambda x: getattr(torch, x))
 
 from interactive_world_sim.experiments import build_experiment
+
+NUM_STEPS = int(os.environ.get("IWS_DEBUG_STEPS", "3"))
 
 
 def _to_device(x: Any, device: torch.device) -> Any:
@@ -31,7 +39,6 @@ def main() -> None:
     with initialize_config_dir(version_base=None, config_dir=config_dir):
         cfg = compose(config_name="isambard_train")
 
-    # Set names that are normally injected in main.py via Hydra runtime choices.
     with open_dict(cfg):
         cfg.experiment._name = "exp_latent_dyn"
         cfg.dataset._name = "arx5_h5_dataset"
@@ -41,58 +48,36 @@ def main() -> None:
         cfg.experiment.validation.data.num_workers = 0
         cfg.dataset.h5_path = os.environ.get("WAN_H5_PATH", "/mnt/wan_dataset.h5")
 
-    assert torch.cuda.is_available(), "CUDA is required for this debug script."
+    assert torch.cuda.is_available(), "CUDA required"
     device = torch.device("cuda")
-    print("device", torch.cuda.get_device_name(0), flush=True)
-    print("CUDA_LAUNCH_BLOCKING", os.environ.get("CUDA_LAUNCH_BLOCKING", "unset"), flush=True)  # noqa: E501
-    print("cudnn_version", torch.backends.cudnn.version(), flush=True)
-    if os.environ.get("IWS_DISABLE_CUDNN", "0") == "1":
-        torch.backends.cudnn.enabled = False
-        print("cuDNN DISABLED by IWS_DISABLE_CUDNN=1", flush=True)
+    print(f"device {torch.cuda.get_device_name(0)}", flush=True)
+    print(f"cudnn_version {torch.backends.cudnn.version()}", flush=True)
 
-    print("building experiment...", flush=True)
     exp = build_experiment(cfg, logger=None, ckpt_path=None)
-    print("building algo...", flush=True)
     model = exp._build_algo()
-    print("building training loader...", flush=True)
     train_loader = exp._build_training_loader()
-    assert train_loader is not None, "Training dataloader is None."
-    print("setting normalizer...", flush=True)
+    assert train_loader is not None
     if hasattr(model, "set_normalizer"):
-        model.set_normalizer(train_loader.dataset.get_normalizer())  # type: ignore[attr-defined]
-    print("moving model to device...", flush=True)
+        model.set_normalizer(train_loader.dataset.get_normalizer())
     model = model.to(device)
     model.train()
-    model.log = lambda *args, **kwargs: None  # type: ignore[attr-defined]
-    model.log_dict = lambda *args, **kwargs: None  # type: ignore[attr-defined]
-    print("on_train_start...", flush=True)
+    model.log = lambda *a, **kw: None
+    model.log_dict = lambda *a, **kw: None
     model.on_train_start()
-    print("configure_optimizers...", flush=True)
-    optim_bundle = model.configure_optimizers()
-    optimizer = optim_bundle["optimizer"]
-    print("init done, starting training loop", flush=True)
-    import faulthandler, sys
-    faulthandler.dump_traceback_later(120, repeat=False, file=sys.stdout, exit=True)
+    optimizer = model.configure_optimizers()["optimizer"]
 
     start = time.time()
     for step, batch in enumerate(train_loader):
-        if step >= 3:
+        if step >= NUM_STEPS:
             break
         batch = _to_device(batch, device)
         optimizer.zero_grad(set_to_none=True)
-        out = model.training_step(batch, step)
-        loss = out["loss"]
-        print(f"step={step} forward_done loss={float(loss.detach().cpu()):.6f}", flush=True)
-        torch.cuda.synchronize()
-        print(f"step={step} pre_backward_sync_ok", flush=True)
+        loss = model.training_step(batch, step)["loss"]
+        print(f"step={step} loss={float(loss.detach().cpu()):.6f}", flush=True)
         loss.backward()
-        torch.cuda.synchronize()
-        print(f"step={step} backward_done", flush=True)
         optimizer.step()
-        print(f"step={step} optimizer_step_done", flush=True)
 
-    faulthandler.cancel_dump_traceback_later()
-    print(f"MANUAL_TORCH_MODEL_LOOP_OK total_s={time.time() - start:.2f}", flush=True)
+    print(f"OK {NUM_STEPS} steps in {time.time() - start:.1f}s", flush=True)
 
 
 if __name__ == "__main__":

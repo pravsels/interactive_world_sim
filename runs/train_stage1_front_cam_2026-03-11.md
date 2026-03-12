@@ -230,53 +230,41 @@
 
 ## Root cause
 
-**cuDNN version mismatch** causing `loss.backward()` to silently hang with 0% GPU utilization.
+**`tracemalloc` deadlocks PyTorch's C++ autograd engine on ARM64/GH200.**
 
-- The container base image (`nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04`) installs cuDNN **9.5.1** into `/usr/lib/aarch64-linux-gnu/`.
-- PyTorch 2.10+cu126 bundles cuDNN **9.10.2** via the `nvidia-cudnn-cu12` pip package at `/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib/`.
-- The `LD_LIBRARY_PATH` patch (originally added to fix the OpenCV/GLIBC_2.38 error) prepended `/usr/lib/aarch64-linux-gnu` — which contains the container's cuDNN 9.5.1. Since `LD_LIBRARY_PATH` takes precedence over PyTorch's RPATH-based library resolution, the **wrong cuDNN** was loaded at runtime.
-- Forward pass happened to work (forward convolution kernels are compatible across cuDNN 9.5.1 and 9.10.2), but **backward kernels silently hung** — no crash, no error, just 0% GPU utilization forever.
+`tracemalloc.start()` (called in `on_train_start()`) hooks into every Python memory allocation via `PyMem_SetAllocator`. The C++ autograd engine uses a thread pool of worker threads that allocate Python objects (gradient tensors, etc.) and need the GIL. With tracemalloc active on ARM64, the trace hook + GIL acquisition pattern deadlocks the autograd worker threads, causing `loss.backward()` to hang forever with 0% GPU utilization — the engine gets stuck before launching any CUDA kernels.
 
-The OpenCV/GLIBC_2.38 error (which motivated the original `LD_LIBRARY_PATH` prepend) was a separate issue: Apptainer's `--nv` flag injects the host's `libGLX.so.0` (compiled against glibc 2.38) into `/.singularity.d/libs/`, but the container only has glibc 2.35 (Ubuntu 22.04). The container's own `libGLX.so.0` (compatible with glibc 2.35) needs to be found first.
+This was present in the codebase from the initial commit (not a debugging artifact). It works on x86_64 but deadlocks on aarch64.
 
-## Fix applied
+### How it was identified
 
-**`LD_LIBRARY_PATH` ordering** in `slurm/iws_train_stage1_slurm.sh` (runtime fix):
+1. `faulthandler.dump_traceback_later()` confirmed the hang was inside `_engine_run_backward` (C++ autograd engine), not Python code.
+2. Component bisection (encoder-only backward) showed even a trivial 704-param `nn.Sequential` of Conv2d+SiLU hangs when the full model is loaded — ruling out computation graph complexity.
+3. Setting `IWS_NO_TRACEMALLOC=1` to skip `tracemalloc.start()` **immediately resolved the hang** — encoder backward, decoder backward, and full `training_step` backward all completed.
+4. Confirmation run (`2807429`): 3 full training steps completed in 16s with decreasing loss (`0.089 → 0.062 → 0.101`).
 
-```
-LD_LIBRARY_PATH = {torch_site}/nvidia/cudnn/lib     # PyTorch's cuDNN 9.10.2 (first priority)
-                 : {torch_site}/nvidia/cublas/lib    # PyTorch's cuBLAS
-                 : {torch_site}/torch/lib            # PyTorch's other bundled libs
-                 : /usr/lib/aarch64-linux-gnu        # container syslibs (container's libGLX before host's)
-                 : /lib/aarch64-linux-gnu            # container glibc
-                 : $LD_LIBRARY_PATH                  # Apptainer --nv injected libs (NVIDIA driver)
-```
+### Earlier red herrings
 
-**Container-level fix** (Dockerfile + requirements.txt, pending rebuild):
+- cuDNN version mismatch (old container's 9.5.1 vs PyTorch's 9.10.2) — happened to coincide with the hang but was not the cause.
+- LD_LIBRARY_PATH ordering — needed for OpenCV/GLIBC but unrelated to the backward hang.
+- Attention backend selection (A100 vs GH200 path) — valid fix but not the backward hang cause.
+- Lightning Trainer internals — ruled out by reproducing with a manual torch loop.
 
-1. Base image changed from `nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04` to `nvidia/cuda:12.6.3-devel-ubuntu22.04` — no system cuDNN, eliminates the version conflict entirely.
-2. OpenCV packages changed from `opencv-python` / `opencv-contrib-python` to headless variants — no `libGLX.so` dependency, eliminates the GLIBC_2.38 mismatch.
+## Fixes applied
 
-Confirmed working: job `2795467` completed 3 manual training steps with real model backward, correct cuDNN 91002, and decreasing loss.
+1. **tracemalloc disabled on ARM64** (`latent_world_model.py`): `on_train_start()` checks `platform.machine() == "aarch64"` and skips `tracemalloc.start()`. `training_step()` checks `is_tracing()` before taking snapshots.
+2. **LD_LIBRARY_PATH ordering** (`slurm/iws_train_stage1_slurm.sh`): prepends PyTorch's bundled cuDNN/cuBLAS/torch libs, then container syslibs, then Apptainer-injected driver libs.
+3. **Container base image** (`Dockerfile`): changed to `nvidia/cuda:12.6.3-devel-ubuntu22.04` (no system cuDNN — avoids version conflicts).
+4. **OpenCV headless** (`requirements.txt`): `opencv-python-headless` / `opencv-contrib-python-headless` — no `libGLX.so` dependency, avoids GLIBC_2.38 mismatch.
+5. **Attention backend** (`attention.py`): GH200 correctly uses math/efficient SDPA (not flash-attention-only A100 path).
+6. **DataLoader** (`exp_base.py`): `prefetch_factor=1` only set when `num_workers > 0`.
 
 ## Results
-- final step: `pending` (full training run not yet submitted with fix)
+- final step: `pending`
 - val_loss: `pending`
 - checkpoint: `pending`
 - wandb offline dir: `pending` (sync later with `wandb sync`)
 
 ## Next
-- rebuild container with Dockerfile fixes (no system cuDNN, headless OpenCV).
-- submit full training run and record job id + node.
-- monitor `squeue`, `slurm-<jobid>.out`, and step/loss checkpoints here.
-- if interrupted by walltime, resume with:
-  - `sbatch --export=ALL,LOAD_CKPT_PATH=/scratch/.../outputs/.../checkpoints/<ckpt>.ckpt slurm/iws_train_stage1_slurm.sh`
-
-## Debug commands used
-- GPU telemetry sample (memory pinned vs compute idle):
-  - `srun --jobid=2733840 --overlap /bin/bash -lc 'nvidia-smi --query-gpu=timestamp,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw --format=csv,noheader,nounits'`
-- cuDNN library location check:
-  - `ls /usr/local/lib/python3.11/dist-packages/torch/lib/libcudnn*` (empty — not in torch/lib)
-  - `ls /usr/lib/aarch64-linux-gnu/libcudnn*` (cuDNN 9.5.1 from base image)
-  - `ldd libtorch_cuda.so | grep cudnn` (resolves via RPATH to `nvidia/cudnn/lib/libcudnn.so.9`)
-- CUDA smoke test: `scripts/debug_cuda_smoke.py` (matmul, SDPA, Conv2d backward)
+- submit full training run.
+- monitor and resume as needed.
