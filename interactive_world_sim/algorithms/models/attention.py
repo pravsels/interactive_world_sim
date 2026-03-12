@@ -57,16 +57,22 @@ class Attention(nn.Module):
         ]
 
         device_properties = torch.cuda.get_device_properties(torch.device("cuda"))
+        gpu_name = device_properties.name.upper()
+        is_a100 = (
+            "A100" in gpu_name
+            and device_properties.major == 8
+            and device_properties.minor == 0
+        )
 
-        if device_properties.major >= 8 and device_properties.minor == 0:
+        if is_a100:
             print_once(
                 "A100 GPU detected, using flash attention if input tensor is on cuda"
             )
             self.cuda_backends = [SDPBackend.FLASH_ATTENTION]
         else:
             print_once(
-                "Non-A100 GPU detected, using math or mem efficient attention if \
-                    input tensor is on cuda"
+                "Non-A100 GPU detected, using math or mem efficient attention if "
+                "input tensor is on cuda"
             )
             self.cuda_backends = [
                 SDPBackend.MATH,

@@ -65,6 +65,18 @@
 - resumed from: `clean submission after canceling previous queued/running jobs`
 - node: `nid010635`
 
+## Job (debug rerun)
+- job_id: `2786521`
+- submitted: `2026-03-12 12:58 UTC`
+- resumed from: `diagnostic run with num_workers=0`
+- node: `nid010577`
+
+## Job (debug rerun)
+- job_id: `2786567`
+- submitted: `2026-03-12 13:04 UTC`
+- resumed from: `num_workers=0 after DataLoader prefetch fix`
+- node: `nid010541`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -89,6 +101,17 @@
 - 2026-03-11 13:01 UTC - committed/pushed `configurations/isambard_train.yaml` update: `experiment.training.batch_size=16` (`stage1 batch 16`).
 - 2026-03-11 13:03 UTC - canceled old jobs and submitted clean run as `2733840`.
 - 2026-03-11 13:06 UTC - verification on Isambard for `2733840`: job is `RUNNING` on `nid010635` (`squeue`/`sacct`), and live GPU sample via `srun --jobid=2733840 --overlap nvidia-smi` reports `59342 MiB / 97871 MiB` used.
+- 2026-03-12 12:29 UTC - follow-up check on Isambard for `2733840`: still `RUNNING` on `nid010635` (`squeue`/`sacct`), elapsed `23:25:19` / limit `1-00:00:00`, exit code currently `0:0`.
+- 2026-03-12 12:31 UTC - inspected `slurm-2733840.out/.err` and run output dir (`/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-11/13-04-13`): logs contain only startup/model-init lines, no train/val loss lines, no checkpoints/metrics files, and W&B offline files have metadata only (no history/summary). Live GPU sample shows `0%` util with `59340 MiB` allocated, suggesting the job is likely stalled before first logged step.
+- 2026-03-12 12:36 UTC - deep process check on compute node (`srun --jobid=2733840 --overlap`): main `python main.py` process is alive and waiting (`futex_wait_queue`), with 8 child `python main.py` worker processes in poll waits and large H5 read bytes already accumulated. This pattern is consistent with a dataloader/input pipeline stall (workers alive but no batches reaching trainer), so no loss logs/checkpoints are produced.
+- 2026-03-12 12:44-12:47 UTC - continuous GPU telemetry sample on job `2733840` (multiple 10s samples): GPU util remained `0%` and memory util `0%` throughout while memory stayed pinned at `59339 MiB / 97871 MiB` and process power draw stayed ~`138.4-138.7 W`. Confirms allocated GPU memory without active training compute.
+- 2026-03-12 12:58 UTC - canceled stuck job `2733840` (`scancel 2733840`). Final state: `CANCELLED`.
+- 2026-03-12 12:58 UTC - submitted diagnostic job `2786521` with overrides `experiment.training.data.num_workers=0 experiment.validation.data.num_workers=0`.
+- 2026-03-12 12:59 UTC - job `2786521` failed quickly with `ValueError`: DataLoader `prefetch_factor` cannot be set when `num_workers=0`.
+- 2026-03-12 13:01 UTC - fix committed/pushed: DataLoader now sets `prefetch_factor=1` only when `num_workers > 0`.
+- 2026-03-12 13:04 UTC - submitted debug rerun `2786567` with `num_workers=0` after fix.
+- 2026-03-12 13:06 UTC - job `2786567` is `RUNNING` on `nid010541`, but still no train/val loss lines or checkpoints yet; one-step GPU sample still shows `0%` util with `~59338 MiB` allocated.
+- 2026-03-12 13:07 UTC - updated root-cause hypothesis: stall is likely not worker-count only; attention backend selection may be wrong on GH200 because code treats all `sm>=8.0` + `.minor==0` GPUs as A100 and forces flash-attention backend.
 
 ## Results
 - final step: `pending`
@@ -101,3 +124,7 @@
 - monitor `squeue`, `slurm-<jobid>.out`, and step/loss checkpoints here.
 - if interrupted by walltime, resume with:
   - `sbatch --export=ALL,LOAD_CKPT_PATH=/scratch/.../outputs/.../checkpoints/<ckpt>.ckpt slurm/iws_train_stage1_slurm.sh`
+
+## Debug commands used
+- GPU telemetry sample (memory pinned vs compute idle):
+  - `srun --jobid=2733840 --overlap /bin/bash -lc 'nvidia-smi --query-gpu=timestamp,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw --format=csv,noheader,nounits'`
