@@ -135,9 +135,14 @@ class BaseLightningExperiment(BaseExperiment):
         self.algo = self.algo.to(device)
         self.algo.train()
         manual_steps = int(os.getenv("IWS_DEBUG_MANUAL_STEPS", "3"))
+        call_lightning_hooks = os.getenv("IWS_DEBUG_MANUAL_CALL_HOOKS", "0") == "1"
         print(
             cyan("Debug mode:"),
             f"IWS_DEBUG_MANUAL_TORCH_LOOP=1, running {manual_steps} manual steps",
+        )
+        print(
+            cyan("Debug mode:"),
+            f"IWS_DEBUG_MANUAL_CALL_HOOKS={'1' if call_lightning_hooks else '0'}",
         )
 
         # Disable Lightning logging requirements in manual loop debug mode.
@@ -161,7 +166,7 @@ class BaseLightningExperiment(BaseExperiment):
                 if step_idx >= manual_steps:
                     break
                 batch = self._move_to_device(batch, device)
-                if hasattr(self.algo, "on_before_zero_grad"):
+                if call_lightning_hooks and hasattr(self.algo, "on_before_zero_grad"):
                     self.algo.on_before_zero_grad(optimizer)  # type: ignore[misc]
                 optimizer.zero_grad(set_to_none=True)
                 out = self.algo.training_step(batch, step_idx)
@@ -171,12 +176,12 @@ class BaseLightningExperiment(BaseExperiment):
                 loss = out["loss"] if isinstance(out, dict) else out
                 if not isinstance(loss, torch.Tensor):
                     raise ValueError("training_step must return a tensor loss in debug mode")
-                if hasattr(self.algo, "on_before_backward"):
+                if call_lightning_hooks and hasattr(self.algo, "on_before_backward"):
                     self.algo.on_before_backward(loss)  # type: ignore[misc]
                 loss.backward()
-                if hasattr(self.algo, "on_after_backward"):
+                if call_lightning_hooks and hasattr(self.algo, "on_after_backward"):
                     self.algo.on_after_backward()  # type: ignore[misc]
-                if hasattr(self.algo, "on_before_optimizer_step"):
+                if call_lightning_hooks and hasattr(self.algo, "on_before_optimizer_step"):
                     self.algo.on_before_optimizer_step(optimizer)  # type: ignore[misc]
                 optimizer.step()
                 print(
