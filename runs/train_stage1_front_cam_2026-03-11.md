@@ -143,6 +143,12 @@
 - resumed from: `LD-path-only A/B test: skip legacy LD patch (IWS_SKIP_LD_PATCH=1) while keeping prior manual-loop debug settings`
 - node: `nid010257`
 
+## Job (debug rerun)
+- job_id: `2789735`
+- submitted: `2026-03-12 15:24 UTC`
+- resumed from: `latent_safety-style manual torch loop refinement: disable Lightning hook calls (IWS_DEBUG_MANUAL_CALL_HOOKS=0) while keeping manual loop + same data/model`
+- node: `nid010570`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -217,6 +223,10 @@
 - 2026-03-12 15:14 UTC - submitted isolated LD test `2789711` with `IWS_SKIP_LD_PATCH=1` and same manual-loop debug flags.
 - 2026-03-12 15:14 UTC - `2789711` failed early during import (before training start) with `ImportError: ... GLIBC_2.38 not found` from OpenCV/cv2 (`libGLX.so.0`) when legacy LD patch is skipped.
 - 2026-03-12 15:14 UTC - conclusion from LD-only test: current container startup in this repo still depends on the LD patch to avoid GLIBC/OpenCV import failure; this A/B did not reach backward path.
+- 2026-03-12 15:23 UTC - committed/pushed manual-loop refinement (`990f8ca`) so Lightning hooks are only called in manual mode when `IWS_DEBUG_MANUAL_CALL_HOOKS=1`.
+- 2026-03-12 15:24 UTC - submitted `2789735` with `IWS_DEBUG_MANUAL_TORCH_LOOP=1`, `IWS_DEBUG_MANUAL_CALL_HOOKS=0`, and legacy LD patch on (`IWS_SKIP_LD_PATCH=0`) to isolate pure manual backward path.
+- 2026-03-12 15:25-15:27 UTC - `2789735` still hangs after full step-0 forward markers (`stage1_after_log`), with no `manual_torch debug step=` completion line even when hook calls are disabled.
+- 2026-03-12 15:27 UTC - canceled `2789735` after capture; final Slurm state `CANCELLED`.
 
 ## Results
 - final step: `pending`
