@@ -180,13 +180,12 @@ class BaseLightningExperiment(BaseExperiment):
                 loss = out["loss"] if isinstance(out, dict) else out
                 if not isinstance(loss, torch.Tensor):
                     raise ValueError("training_step must return a tensor loss in debug mode")
-                if call_lightning_hooks and hasattr(self.algo, "on_before_backward"):
-                    self.algo.on_before_backward(loss)  # type: ignore[misc]
+                print(f"[manual_torch debug] step={step_idx} before_cuda_sync", flush=True)
+                torch.cuda.synchronize()
+                print(f"[manual_torch debug] step={step_idx} after_cuda_sync", flush=True)
+                print(f"[manual_torch debug] step={step_idx} before_backward loss_shape={loss.shape} grad_fn={loss.grad_fn}", flush=True)
                 loss.backward()
-                if call_lightning_hooks and hasattr(self.algo, "on_after_backward"):
-                    self.algo.on_after_backward()  # type: ignore[misc]
-                if call_lightning_hooks and hasattr(self.algo, "on_before_optimizer_step"):
-                    self.algo.on_before_optimizer_step(optimizer)  # type: ignore[misc]
+                print(f"[manual_torch debug] step={step_idx} after_backward", flush=True)
                 optimizer.step()
                 print(
                     f"[manual_torch debug] step={step_idx} loss={float(loss.detach().cpu()):.6f}",
