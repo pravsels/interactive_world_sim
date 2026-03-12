@@ -90,8 +90,13 @@ def main() -> None:
         torch.cuda.synchronize()
         print(f"step={step} pre_backward_sync_ok", flush=True)
         import faulthandler, sys
-        faulthandler.dump_traceback_later(60, repeat=False, file=sys.stdout, exit=True)
-        loss.backward()
+        faulthandler.dump_traceback_later(120, repeat=False, file=sys.stdout, exit=True)
+        params = [p for p in model.parameters() if p.requires_grad]
+        print(f"step={step} computing grads for {len(params)} params...", flush=True)
+        grads = torch.autograd.grad(loss, params, allow_unused=True)
+        for p, g in zip(params, grads):
+            if g is not None:
+                p.grad = g
         faulthandler.cancel_dump_traceback_later()
         torch.cuda.synchronize()
         print(f"step={step} backward_done", flush=True)
