@@ -125,6 +125,12 @@
 - resumed from: `same single-GPU isolation debug setup, re-submitted after commit/push and fresh pull on Isambard`
 - node: `nid010879`
 
+## Job (debug rerun)
+- job_id: `2789217`
+- submitted: `2026-03-12 14:45 UTC`
+- resumed from: `strict dummy-loss probe (IWS_DEBUG_DUMMY_LOSS=1) with no model forward; same single-GPU isolation + hook tracing + thread caps + num_workers=0`
+- node: `nid010507`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -184,6 +190,10 @@
 - 2026-03-12 14:42 UTC - submitted rerun `2788937` with same debug flags (`IWS_DEBUG_STEP_TRACE=1`, `IWS_DEBUG_HOOK_TRACE=1`, `CUDA_LAUNCH_BLOCKING=1`, thread caps, `num_workers=0`, `IWS_FORCE_SDPA_MATH=1`) to isolate allocator/strategy effects.
 - 2026-03-12 14:45 UTC - workflow correction: committed/pushed single-GPU changes to GitHub (`bb686c7`), then pulled latest `main` on Isambard before running again.
 - 2026-03-12 14:46 UTC - canceled `2788937` and submitted synced rerun `2788966` (same debug flags) from pulled commit state; job is running on `nid010879`.
+- 2026-03-12 14:49 UTC - committed/pushed dummy-loss debug toggle (`2f2056c`), pulled latest on Isambard, canceled `2788966`, and submitted strict dummy-loss run `2789217` (`IWS_DEBUG_DUMMY_LOSS=1`).
+- 2026-03-12 14:47-14:48 UTC - `2789217` confirms dummy-loss path is active (`skipping model forward and returning dummy scalar loss`) yet still stalls after `on_before_backward` with no `on_after_backward`.
+- 2026-03-12 14:48 UTC - key conclusion from strict probe: the hang reproduces even without model forward/backward graph, so root cause is likely outside model autograd graph (Lightning/runtime/CUDA environment path).
+- 2026-03-12 14:49 UTC - canceled `2789217` after capturing markers; final Slurm state `CANCELLED`.
 
 ## Results
 - final step: `pending`
