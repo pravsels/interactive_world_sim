@@ -802,3 +802,28 @@ class LatentWorldModel(BasePytorchAlgo):
         """Start tracing memory allocations"""
         tracemalloc.start()
         self.tracemalloc_snapshot = tracemalloc.take_snapshot()
+
+    def _debug_hook_mark(self, stage: str) -> None:
+        if os.getenv("IWS_DEBUG_HOOK_TRACE", "0") != "1":
+            return
+        if self.global_step > 1:
+            return
+        print(
+            f"[training_hook debug] global_step={self.global_step} stage={stage}",
+            flush=True,
+        )
+
+    def on_before_backward(self, loss: torch.Tensor) -> None:
+        del loss
+        self._debug_hook_mark("on_before_backward")
+
+    def on_after_backward(self) -> None:
+        self._debug_hook_mark("on_after_backward")
+
+    def on_before_optimizer_step(self, optimizer: torch.optim.Optimizer) -> None:
+        del optimizer
+        self._debug_hook_mark("on_before_optimizer_step")
+
+    def on_before_zero_grad(self, optimizer: torch.optim.Optimizer) -> None:
+        del optimizer
+        self._debug_hook_mark("on_before_zero_grad")
