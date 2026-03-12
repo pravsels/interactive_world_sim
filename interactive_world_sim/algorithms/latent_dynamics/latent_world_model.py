@@ -488,6 +488,7 @@ class LatentWorldModel(BasePytorchAlgo):
     def training_step(self, batch: dict, batch_idx: int) -> STEP_OUTPUT:
         """Training step of the model"""
         debug_step_trace = os.getenv("IWS_DEBUG_STEP_TRACE", "0") == "1" and batch_idx == 0
+        debug_dummy_loss = os.getenv("IWS_DEBUG_DUMMY_LOSS", "0") == "1"
 
         def _debug_mark(stage: str) -> None:
             if debug_step_trace:
@@ -495,6 +496,16 @@ class LatentWorldModel(BasePytorchAlgo):
 
         if batch["obs"][self.obs_keys[0]].shape[0] == 0:
             return None
+        if debug_dummy_loss:
+            if batch_idx == 0:
+                print(
+                    "[training_step debug] IWS_DEBUG_DUMMY_LOSS=1, skipping model "
+                    "forward and returning dummy scalar loss",
+                    flush=True,
+                )
+            dummy_loss = torch.zeros((), device=self.device, requires_grad=True)
+            self.log("training/rec_loss", dummy_loss)
+            return {"loss": dummy_loss}
         # normalize input
         if batch_idx % 1000 == 0:
             current_snapshot = tracemalloc.take_snapshot()
