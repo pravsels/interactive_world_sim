@@ -69,7 +69,10 @@ def main() -> None:
         print("on_train_start...", flush=True)
         model.on_train_start()
     else:
-        print("SKIPPING on_train_start (no tracemalloc)", flush=True)
+        import tracemalloc
+        tracemalloc.start()
+        model.tracemalloc_snapshot = tracemalloc.take_snapshot()
+        print("SKIPPING on_train_start (tracemalloc started manually)", flush=True)
     print("configure_optimizers...", flush=True)
     optim_bundle = model.configure_optimizers()
     optimizer = optim_bundle["optimizer"]
