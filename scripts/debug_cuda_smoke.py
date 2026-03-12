@@ -29,8 +29,17 @@ def main() -> None:
     loss.backward()
     print("sdpa_backward_ok", bool(torch.isfinite(q.grad).all()))
 
-    # Conv2d backward test (cuDNN path)
+    # TF32 matmul backward (matches QKVAttention einsum pattern)
     torch.set_float32_matmul_precision("high")
+    a = torch.randn(32, 64, 196, device="cuda", requires_grad=True)
+    b = torch.randn(32, 64, 196, device="cuda", requires_grad=True)
+    w = torch.einsum("bct,bcs->bts", a, b)
+    w = torch.softmax(w.float(), dim=-1).to(a.dtype)
+    print("einsum_attn_forward_ok", flush=True)
+    w.sum().backward()
+    print("einsum_attn_backward_ok", bool(torch.isfinite(a.grad).all()))
+
+    # Conv2d backward test (cuDNN path)
     print("cudnn_enabled", torch.backends.cudnn.enabled)
 
     conv = torch.nn.Sequential(
