@@ -194,6 +194,8 @@
 - 2026-03-12 14:47-14:48 UTC - `2789217` confirms dummy-loss path is active (`skipping model forward and returning dummy scalar loss`) yet still stalls after `on_before_backward` with no `on_after_backward`.
 - 2026-03-12 14:48 UTC - key conclusion from strict probe: the hang reproduces even without model forward/backward graph, so root cause is likely outside model autograd graph (Lightning/runtime/CUDA environment path).
 - 2026-03-12 14:49 UTC - canceled `2789217` after capturing markers; final Slurm state `CANCELLED`.
+- 2026-03-12 14:52 UTC - ran an isolated in-container CUDA smoke probe (same SIF + `--nv`, outside Lightning training loop): `torch 2.10.0+cu126`, CUDA available on `NVIDIA GH200 120GB`, cuDNN `91002`, and both basic matmul backward + SDPA backward completed successfully.
+- 2026-03-12 14:52 UTC - conclusion from smoke probe: container CUDA libraries are functional for core PyTorch backward paths; the hang is likely specific to training-runtime integration (Lightning loop/optimizer plugin/runtime interactions), not a blanket CUDA-lib failure.
 
 ## Results
 - final step: `pending`
