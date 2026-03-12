@@ -46,6 +46,9 @@ def main() -> None:
     print("device", torch.cuda.get_device_name(0), flush=True)
     print("CUDA_LAUNCH_BLOCKING", os.environ.get("CUDA_LAUNCH_BLOCKING", "unset"), flush=True)  # noqa: E501
     print("cudnn_version", torch.backends.cudnn.version(), flush=True)
+    if os.environ.get("IWS_DISABLE_CUDNN", "0") == "1":
+        torch.backends.cudnn.enabled = False
+        print("cuDNN DISABLED by IWS_DISABLE_CUDNN=1", flush=True)
 
     print("building experiment...", flush=True)
     exp = build_experiment(cfg, logger=None, ckpt_path=None)
