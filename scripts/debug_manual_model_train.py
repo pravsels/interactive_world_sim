@@ -66,33 +66,36 @@ def main() -> None:
     optim_bundle = model.configure_optimizers()
     optimizer = optim_bundle["optimizer"]
 
+    # Phase 1: test autograd BEFORE any model forward
+    probe_pre = torch.tensor(1.0, device=device, requires_grad=True)
+    (probe_pre * 1.0).backward()
+    print("phase1_pre_forward_probe OK", flush=True)
+
+    # Phase 2: test Conv2d backward with model's encoder
+    dummy_img = torch.randn(1, 3, 224, 224, device=device)
+    enc_out = model.encoder(dummy_img)
+    enc_out.mean().backward()
+    print(f"phase2_encoder_backward OK shape={enc_out.shape}", flush=True)
+    model.zero_grad()
+
+    # Phase 3: full training_step forward + backward
     start = time.time()
     for step, batch in enumerate(train_loader):
-        if step >= 3:
+        if step >= 1:
             break
         batch = _to_device(batch, device)
         optimizer.zero_grad(set_to_none=True)
-        step_start = time.time()
         out = model.training_step(batch, step)
         assert isinstance(out, dict) and "loss" in out, "training_step did not return loss"
         loss = out["loss"]
         print(f"step={step} forward_done loss={float(loss.detach().cpu()):.6f}", flush=True)
         torch.cuda.synchronize()
-        print(f"step={step} cuda_synced_pre_backward", flush=True)
-        # Probe: dummy scalar backward to warm up autograd engine
-        probe = torch.tensor(1.0, device=device, requires_grad=True)
-        (probe * 1.0).backward()
-        print(f"step={step} probe_backward_done", flush=True)
+        print(f"step={step} pre_backward_sync_ok", flush=True)
         loss.backward()
         torch.cuda.synchronize()
         print(f"step={step} backward_done", flush=True)
-        model.on_before_optimizer_step(optimizer)
         optimizer.step()
-        elapsed = time.time() - step_start
-        print(
-            f"manual_step={step} loss={float(loss.detach().cpu()):.6f} step_s={elapsed:.2f}",
-            flush=True,
-        )
+        print(f"step={step} optimizer_step_done", flush=True)
 
     print(f"MANUAL_TORCH_MODEL_LOOP_OK total_s={time.time() - start:.2f}", flush=True)
 
