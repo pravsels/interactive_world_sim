@@ -89,7 +89,23 @@ def main() -> None:
         print(f"step={step} forward_done loss={float(loss.detach().cpu()):.6f}", flush=True)
         torch.cuda.synchronize()
         print(f"step={step} pre_backward_sync_ok", flush=True)
+        import signal, threading, traceback, sys
+        def _alarm_handler(signum, frame):
+            print("\n=== BACKWARD TIMEOUT - STACK TRACES ===", flush=True)
+            for tid, tframe in sys._current_frames().items():
+                tname = "unknown"
+                for t in threading.enumerate():
+                    if t.ident == tid:
+                        tname = t.name
+                        break
+                print(f"\n--- Thread {tid} ({tname}) ---", flush=True)
+                traceback.print_stack(tframe)
+            print("=== END STACK TRACES ===", flush=True)
+            sys.exit(42)
+        signal.signal(signal.SIGALRM, _alarm_handler)
+        signal.alarm(60)
         loss.backward()
+        signal.alarm(0)
         torch.cuda.synchronize()
         print(f"step={step} backward_done", flush=True)
         optimizer.step()
