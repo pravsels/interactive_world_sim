@@ -131,6 +131,12 @@
 - resumed from: `strict dummy-loss probe (IWS_DEBUG_DUMMY_LOSS=1) with no model forward; same single-GPU isolation + hook tracing + thread caps + num_workers=0`
 - node: `nid010507`
 
+## Job (debug rerun)
+- job_id: `2789543`
+- submitted: `2026-03-12 15:02 UTC`
+- resumed from: `existing pipeline run with Lightning Trainer bypass enabled (IWS_DEBUG_MANUAL_TORCH_LOOP=1, 3 manual steps, same model+dataloader)`
+- node: `nid010545`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -196,6 +202,11 @@
 - 2026-03-12 14:49 UTC - canceled `2789217` after capturing markers; final Slurm state `CANCELLED`.
 - 2026-03-12 14:52 UTC - ran an isolated in-container CUDA smoke probe (same SIF + `--nv`, outside Lightning training loop): `torch 2.10.0+cu126`, CUDA available on `NVIDIA GH200 120GB`, cuDNN `91002`, and both basic matmul backward + SDPA backward completed successfully.
 - 2026-03-12 14:52 UTC - conclusion from smoke probe: container CUDA libraries are functional for core PyTorch backward paths; the hang is likely specific to training-runtime integration (Lightning loop/optimizer plugin/runtime interactions), not a blanket CUDA-lib failure.
+- 2026-03-12 15:01 UTC - committed/pushed Lightning bypass patch in existing training pipeline (`84d990b`): when `IWS_DEBUG_MANUAL_TORCH_LOOP=1`, `training()` skips `Trainer.fit` and runs a short manual torch optimizer loop over the same model/dataloader.
+- 2026-03-12 15:02 UTC - pulled latest on Isambard and submitted `2789543` with manual-loop flag enabled (`IWS_DEBUG_MANUAL_TORCH_LOOP=1`, `IWS_DEBUG_MANUAL_STEPS=3`, plus prior step/hook/thread debug flags).
+- 2026-03-12 15:03-15:04 UTC - `2789543` reproduces the same cutoff in manual mode: full step-0 markers through `stage1_after_log`, `on_before_backward` printed, but no `on_after_backward` and no manual step completion print.
+- 2026-03-12 15:04 UTC - key conclusion: hang persists even when bypassing Lightning `Trainer.fit`; issue is deeper than high-level Lightning loop plumbing.
+- 2026-03-12 15:04 UTC - canceled `2789543` after capture; final Slurm state `CANCELLED`.
 
 ## Results
 - final step: `pending`
