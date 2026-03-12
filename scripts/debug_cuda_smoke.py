@@ -28,6 +28,41 @@ def main() -> None:
     loss = out.float().mean()
     loss.backward()
     print("sdpa_backward_ok", bool(torch.isfinite(q.grad).all()))
+
+    # Conv2d backward test (cuDNN path)
+    torch.set_float32_matmul_precision("high")
+    print("cudnn_enabled", torch.backends.cudnn.enabled)
+
+    conv = torch.nn.Sequential(
+        torch.nn.Conv2d(3, 64, 3, padding=1),
+        torch.nn.SiLU(),
+        torch.nn.Conv2d(64, 64, 3, padding=1, stride=2),
+        torch.nn.SiLU(),
+        torch.nn.Conv2d(64, 128, 3, padding=1),
+        torch.nn.SiLU(),
+        torch.nn.Conv2d(128, 128, 3, padding=1, stride=2),
+    ).cuda()
+    img = torch.randn(16, 3, 224, 224, device="cuda")
+    out = conv(img)
+    loss = out.float().mean()
+    print("conv_forward_ok", flush=True)
+    loss.backward()
+    print("conv_backward_ok", bool(all(torch.isfinite(p.grad).all() for p in conv.parameters())))
+
+    # Same test with cuDNN disabled
+    torch.backends.cudnn.enabled = False
+    conv2 = torch.nn.Sequential(
+        torch.nn.Conv2d(3, 64, 3, padding=1),
+        torch.nn.SiLU(),
+        torch.nn.Conv2d(64, 64, 3, padding=1, stride=2),
+    ).cuda()
+    img2 = torch.randn(16, 3, 224, 224, device="cuda")
+    out2 = conv2(img2)
+    loss2 = out2.float().mean()
+    print("conv_no_cudnn_forward_ok", flush=True)
+    loss2.backward()
+    print("conv_no_cudnn_backward_ok", bool(all(torch.isfinite(p.grad).all() for p in conv2.parameters())))
+
     print("SMOKE_TEST_DONE")
 
 
