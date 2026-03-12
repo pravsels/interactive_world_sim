@@ -2,9 +2,13 @@ import time
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from hydra import compose, initialize_config_dir
-from omegaconf import open_dict
+from omegaconf import OmegaConf, open_dict
+
+OmegaConf.register_new_resolver("eval", lambda expr: eval(expr, {"np": np}))
+OmegaConf.register_new_resolver("torch", lambda x: getattr(torch, x))
 
 from interactive_world_sim.experiments import build_experiment
 
@@ -35,9 +39,12 @@ def main() -> None:
         cfg.experiment.training.data.num_workers = 0
         cfg.experiment.validation.data.num_workers = 0
 
+    import os
     assert torch.cuda.is_available(), "CUDA is required for this debug script."
     device = torch.device("cuda")
     print("device", torch.cuda.get_device_name(0), flush=True)
+    print("CUDA_LAUNCH_BLOCKING", os.environ.get("CUDA_LAUNCH_BLOCKING", "unset"), flush=True)
+    print("cudnn_version", torch.backends.cudnn.version(), flush=True)
 
     exp = build_experiment(cfg, logger=None, ckpt_path=None)
     model = exp._build_algo().to(device)
@@ -66,9 +73,12 @@ def main() -> None:
         out = model.training_step(batch, step)
         assert isinstance(out, dict) and "loss" in out, "training_step did not return loss"
         loss = out["loss"]
-        model.on_before_backward(loss)
+        print(f"step={step} forward_done loss={float(loss.detach().cpu()):.6f}", flush=True)
+        torch.cuda.synchronize()
+        print(f"step={step} cuda_synced_pre_backward", flush=True)
         loss.backward()
-        model.on_after_backward()
+        torch.cuda.synchronize()
+        print(f"step={step} backward_done", flush=True)
         model.on_before_optimizer_step(optimizer)
         optimizer.step()
         elapsed = time.time() - step_start
