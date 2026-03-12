@@ -108,7 +108,9 @@ apptainer exec --nv \
   bash -lc "cd /workspace && \
     TORCH_LIB=\$(python -c 'import torch; print(torch.__path__[0] + \"/lib\")') && \
     export LD_LIBRARY_PATH=\${TORCH_LIB}:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu:\$LD_LIBRARY_PATH && \
-    echo \"LD_LIBRARY_PATH: torch/lib first (cuDNN 9.10.2), then container syslibs (GLX), then Apptainer --nv\" && \
+    echo \"TORCH_LIB=\${TORCH_LIB}\" && \
+    echo \"LD_LIBRARY_PATH=\$LD_LIBRARY_PATH\" && \
+    python -c 'import torch; print(\"cudnn_version:\", torch.backends.cudnn.version())' && \
     export HF_HOME=/root/.cache/huggingface && \
     export WANDB_DIR=${WANDB_DIR} && \
     export WANDB_CACHE_DIR=${WANDB_CACHE_DIR} && \
