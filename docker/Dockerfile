@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04
+FROM nvidia/cuda:12.6.3-devel-ubuntu22.04
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -14,10 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3.11-dev \
     libhdf5-dev \
-    libice6 \
-    libgl1 \
     libglib2.0-0 \
-    libsm6 \
     libvulkan1 \
     mesa-vulkan-drivers \
     pkg-config \

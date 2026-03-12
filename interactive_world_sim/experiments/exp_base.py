@@ -25,9 +25,6 @@ from interactive_world_sim.utils.print_utils import cyan
 
 torch.set_float32_matmul_precision("high")
 
-if os.getenv("IWS_DEBUG_NO_CUDNN", "0") == "1":
-    torch.backends.cudnn.enabled = False
-    print("[debug] cuDNN DISABLED via IWS_DEBUG_NO_CUDNN=1")
 
 
 class BaseExperiment(ABC):
@@ -133,21 +130,10 @@ class BaseLightningExperiment(BaseExperiment):
             return DDPStrategy(find_unused_parameters=True)
         return "auto"
 
-    @staticmethod
-    def _probe_backward(label: str) -> None:
-        t = torch.tensor(1.0, device="cuda", requires_grad=True)
-        t.backward()
-        print(f"[autograd probe] {label}: OK (grad={t.grad})", flush=True)
-
     def _run_manual_torch_loop(self, train_dataloader: TRAIN_DATALOADERS) -> None:
         assert self.algo is not None
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self._probe_backward("before_model_to_device")
-
         self.algo = self.algo.to(device)
-        self._probe_backward("after_model_to_device")
-
         self.algo.train()
         manual_steps = int(os.getenv("IWS_DEBUG_MANUAL_STEPS", "3"))
         call_lightning_hooks = os.getenv("IWS_DEBUG_MANUAL_CALL_HOOKS", "0") == "1"
@@ -168,8 +154,6 @@ class BaseLightningExperiment(BaseExperiment):
         if hasattr(self.algo, "on_train_start"):
             self.algo.on_train_start()
 
-        self._probe_backward("after_on_train_start")
-
         optim_bundle = self.algo.configure_optimizers()
         if not isinstance(optim_bundle, dict) or "optimizer" not in optim_bundle:
             raise ValueError(
@@ -177,15 +161,12 @@ class BaseLightningExperiment(BaseExperiment):
                 "containing 'optimizer'."
             )
         optimizer: torch.optim.Optimizer = optim_bundle["optimizer"]
-        self._probe_backward("after_configure_optimizers")
 
         try:
             for step_idx, batch in enumerate(train_dataloader):
                 if step_idx >= manual_steps:
                     break
                 batch = self._move_to_device(batch, device)
-                if step_idx == 0:
-                    self._probe_backward("after_first_batch_to_device")
                 if call_lightning_hooks and hasattr(self.algo, "on_before_zero_grad"):
                     self.algo.on_before_zero_grad(optimizer)  # type: ignore[misc]
                 optimizer.zero_grad(set_to_none=True)
@@ -196,19 +177,13 @@ class BaseLightningExperiment(BaseExperiment):
                 loss = out["loss"] if isinstance(out, dict) else out
                 if not isinstance(loss, torch.Tensor):
                     raise ValueError("training_step must return a tensor loss in debug mode")
-                print(f"[manual_torch debug] step={step_idx} before_cuda_sync", flush=True)
-                torch.cuda.synchronize()
-                print(f"[manual_torch debug] step={step_idx} after_cuda_sync", flush=True)
-
-                # Test 1: backward on a fresh local scalar (no model involvement)
-                probe = torch.tensor(1.0, device="cuda", requires_grad=True)
-                print(f"[manual_torch debug] step={step_idx} probe_backward_start", flush=True)
-                probe.backward()
-                print(f"[manual_torch debug] step={step_idx} probe_backward_done grad={probe.grad}", flush=True)
-
-                print(f"[manual_torch debug] step={step_idx} before_backward loss_shape={loss.shape} grad_fn={loss.grad_fn}", flush=True)
+                if call_lightning_hooks and hasattr(self.algo, "on_before_backward"):
+                    self.algo.on_before_backward(loss)  # type: ignore[misc]
                 loss.backward()
-                print(f"[manual_torch debug] step={step_idx} after_backward", flush=True)
+                if call_lightning_hooks and hasattr(self.algo, "on_after_backward"):
+                    self.algo.on_after_backward()  # type: ignore[misc]
+                if call_lightning_hooks and hasattr(self.algo, "on_before_optimizer_step"):
+                    self.algo.on_before_optimizer_step(optimizer)  # type: ignore[misc]
                 optimizer.step()
                 print(
                     f"[manual_torch debug] step={step_idx} loss={float(loss.detach().cpu()):.6f}",
