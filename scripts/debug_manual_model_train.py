@@ -65,8 +65,11 @@ def main() -> None:
     model.train()
     model.log = lambda *args, **kwargs: None  # type: ignore[attr-defined]
     model.log_dict = lambda *args, **kwargs: None  # type: ignore[attr-defined]
-    print("on_train_start...", flush=True)
-    model.on_train_start()
+    if os.environ.get("IWS_SKIP_ON_TRAIN_START", "0") != "1":
+        print("on_train_start...", flush=True)
+        model.on_train_start()
+    else:
+        print("SKIPPING on_train_start (no tracemalloc)", flush=True)
     print("configure_optimizers...", flush=True)
     optim_bundle = model.configure_optimizers()
     optimizer = optim_bundle["optimizer"]
