@@ -111,6 +111,12 @@
 - job_id: `2787050`
 - submitted: `2026-03-12 13:53 UTC`
 - resumed from: `forced pure math SDPA backend (IWS_FORCE_SDPA_MATH=1) with CUDA_LAUNCH_BLOCKING=1 + step/hook traces + thread caps + num_workers=0`
+- node: `nid011115`
+
+## Job (debug rerun)
+- job_id: `2788937`
+- submitted: `2026-03-12 14:42 UTC`
+- resumed from: `single-GPU isolation rerun: Slurm mem changed to 128G and exclusive node allocation removed; trainer strategy now keyed to configured num_devices*num_nodes`
 - node: `pending`
 
 ## Status
@@ -166,6 +172,10 @@
 - 2026-03-12 13:43 UTC - launch-blocking result indicates a hard/stuck backward kernel path (hang without thrown CUDA exception), likely in autograd/backward compute rather than asynchronous error propagation.
 - 2026-03-12 13:53 UTC - canceled `2786935`, patched attention backend with runtime toggle `IWS_FORCE_SDPA_MATH=1`, and submitted `2787050` to force math-only SDPA during the same backward-path diagnostic setup.
 - 2026-03-12 13:57 UTC - `2787050` is currently `PENDING` (no node assigned yet), so no slurm output exists yet for this run.
+- 2026-03-12 14:09 UTC - `2787050` started on `nid011115` and reproduces the same marker cutoff: full batch-0 `training_step` markers through `stage1_after_log`, then hooks reach `on_before_zero_grad` and `on_before_backward` but do not reach `on_after_backward`.
+- 2026-03-12 14:09 UTC - no traceback in stderr while running; forced math SDPA did not immediately unblock backward in this diagnostic.
+- 2026-03-12 14:42 UTC - canceled `2787050`, applied single-GPU isolation changes (`#SBATCH --mem=128G`, removed `#SBATCH --exclusive`) and updated trainer strategy selection to use config (`num_devices*num_nodes > 1`) rather than visible node GPU count.
+- 2026-03-12 14:42 UTC - submitted rerun `2788937` with same debug flags (`IWS_DEBUG_STEP_TRACE=1`, `IWS_DEBUG_HOOK_TRACE=1`, `CUDA_LAUNCH_BLOCKING=1`, thread caps, `num_workers=0`, `IWS_FORCE_SDPA_MATH=1`) to isolate allocator/strategy effects.
 
 ## Results
 - final step: `pending`

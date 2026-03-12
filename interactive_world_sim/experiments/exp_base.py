@@ -114,6 +114,12 @@ class BaseLightningExperiment(BaseExperiment):
     # each key has to be a yaml file under '[project_root]/configurations/dataset' without .yaml suffix # noqa
     compatible_datasets: Dict = {}
 
+    def _get_trainer_strategy(self) -> Union[str, DDPStrategy]:
+        # Select distributed strategy from requested config, not visible node GPUs.
+        if int(self.cfg.num_devices) * int(self.cfg.num_nodes) > 1:
+            return DDPStrategy(find_unused_parameters=True)
+        return "auto"
+
     def _build_training_loader(
         self,
     ) -> Optional[Union[TRAIN_DATALOADERS, pl.LightningDataModule]]:
@@ -223,11 +229,7 @@ class BaseLightningExperiment(BaseExperiment):
             logger=self.logger if self.logger else False,
             devices=self.cfg.num_devices,
             num_nodes=self.cfg.num_nodes,
-            strategy=(
-                DDPStrategy(find_unused_parameters=True)
-                if torch.cuda.device_count() > 1
-                else "auto"
-            ),
+            strategy=self._get_trainer_strategy(),
             callbacks=callbacks,
             gradient_clip_val=self.cfg.training.optim.gradient_clip_val,
             val_check_interval=self.cfg.validation.val_every_n_step,
@@ -270,11 +272,7 @@ class BaseLightningExperiment(BaseExperiment):
             logger=self.logger,
             devices=self.cfg.num_devices,
             num_nodes=self.cfg.num_nodes,
-            strategy=(
-                DDPStrategy(find_unused_parameters=True)
-                if torch.cuda.device_count() > 1
-                else "auto"
-            ),
+            strategy=self._get_trainer_strategy(),
             callbacks=callbacks,
             limit_val_batches=self.cfg.validation.limit_batch,
             precision=self.cfg.validation.precision,
@@ -303,11 +301,7 @@ class BaseLightningExperiment(BaseExperiment):
             logger=self.logger,
             devices=self.cfg.num_devices,
             num_nodes=self.cfg.num_nodes,
-            strategy=(
-                DDPStrategy(find_unused_parameters=True)
-                if torch.cuda.device_count() > 1
-                else "auto"
-            ),
+            strategy=self._get_trainer_strategy(),
             callbacks=callbacks,
             limit_test_batches=self.cfg.test.limit_batch,
             precision=self.cfg.test.precision,
