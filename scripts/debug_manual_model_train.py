@@ -1,3 +1,4 @@
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -38,12 +39,12 @@ def main() -> None:
         cfg.debug = False
         cfg.experiment.training.data.num_workers = 0
         cfg.experiment.validation.data.num_workers = 0
+        cfg.dataset.h5_path = os.environ.get("WAN_H5_PATH", "/mnt/wan_dataset.h5")
 
-    import os
     assert torch.cuda.is_available(), "CUDA is required for this debug script."
     device = torch.device("cuda")
     print("device", torch.cuda.get_device_name(0), flush=True)
-    print("CUDA_LAUNCH_BLOCKING", os.environ.get("CUDA_LAUNCH_BLOCKING", "unset"), flush=True)
+    print("CUDA_LAUNCH_BLOCKING", os.environ.get("CUDA_LAUNCH_BLOCKING", "unset"), flush=True)  # noqa: E501
     print("cudnn_version", torch.backends.cudnn.version(), flush=True)
 
     exp = build_experiment(cfg, logger=None, ckpt_path=None)
