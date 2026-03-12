@@ -1,5 +1,5 @@
 import os
-import tracemalloc
+import tracemalloc as _tracemalloc_mod
 from typing import Any, Callable
 
 import hydra
@@ -507,8 +507,8 @@ class LatentWorldModel(BasePytorchAlgo):
             self.log("training/rec_loss", dummy_loss)
             return {"loss": dummy_loss}
         # normalize input
-        if batch_idx % 1000 == 0:
-            current_snapshot = tracemalloc.take_snapshot()
+        if batch_idx % 1000 == 0 and _tracemalloc_mod.is_tracing():
+            current_snapshot = _tracemalloc_mod.take_snapshot()
             top_stats = current_snapshot.compare_to(self.tracemalloc_snapshot, "lineno")
 
             print(f"\n[ Top 10 memory diff from start to step {batch_idx} ]")
@@ -810,9 +810,13 @@ class LatentWorldModel(BasePytorchAlgo):
         self.validation_step_outputs.clear()
 
     def on_train_start(self) -> None:
-        """Start tracing memory allocations"""
-        tracemalloc.start()
-        self.tracemalloc_snapshot = tracemalloc.take_snapshot()
+        """Start tracing memory allocations (disabled on ARM64/GH200 — causes autograd deadlock)."""
+        import platform
+        if platform.machine() == "aarch64":
+            print("[on_train_start] Skipping tracemalloc on ARM64 (deadlocks autograd engine)", flush=True)
+            return
+        _tracemalloc_mod.start()
+        self.tracemalloc_snapshot = _tracemalloc_mod.take_snapshot()
 
     def _debug_hook_mark(self, stage: str) -> None:
         if os.getenv("IWS_DEBUG_HOOK_TRACE", "0") != "1":
