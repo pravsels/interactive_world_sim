@@ -117,7 +117,13 @@
 - job_id: `2788937`
 - submitted: `2026-03-12 14:42 UTC`
 - resumed from: `single-GPU isolation rerun: Slurm mem changed to 128G and exclusive node allocation removed; trainer strategy now keyed to configured num_devices*num_nodes`
-- node: `pending`
+- node: `nid010811`
+
+## Job (debug rerun)
+- job_id: `2788966`
+- submitted: `2026-03-12 14:46 UTC`
+- resumed from: `same single-GPU isolation debug setup, re-submitted after commit/push and fresh pull on Isambard`
+- node: `nid010879`
 
 ## Status
 - 2026-03-11 - prepared run log before first submission.
@@ -176,6 +182,8 @@
 - 2026-03-12 14:09 UTC - no traceback in stderr while running; forced math SDPA did not immediately unblock backward in this diagnostic.
 - 2026-03-12 14:42 UTC - canceled `2787050`, applied single-GPU isolation changes (`#SBATCH --mem=128G`, removed `#SBATCH --exclusive`) and updated trainer strategy selection to use config (`num_devices*num_nodes > 1`) rather than visible node GPU count.
 - 2026-03-12 14:42 UTC - submitted rerun `2788937` with same debug flags (`IWS_DEBUG_STEP_TRACE=1`, `IWS_DEBUG_HOOK_TRACE=1`, `CUDA_LAUNCH_BLOCKING=1`, thread caps, `num_workers=0`, `IWS_FORCE_SDPA_MATH=1`) to isolate allocator/strategy effects.
+- 2026-03-12 14:45 UTC - workflow correction: committed/pushed single-GPU changes to GitHub (`bb686c7`), then pulled latest `main` on Isambard before running again.
+- 2026-03-12 14:46 UTC - canceled `2788937` and submitted synced rerun `2788966` (same debug flags) from pulled commit state; job is running on `nid010879`.
 
 ## Results
 - final step: `pending`
