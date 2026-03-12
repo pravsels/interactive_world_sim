@@ -65,7 +65,10 @@ def main() -> None:
     model.train()
     model.log = lambda *args, **kwargs: None  # type: ignore[attr-defined]
     model.log_dict = lambda *args, **kwargs: None  # type: ignore[attr-defined]
-    if os.environ.get("IWS_SKIP_ON_TRAIN_START", "0") != "1":
+    skip_tracemalloc = os.environ.get("IWS_NO_TRACEMALLOC", "0") == "1"
+    if skip_tracemalloc:
+        print("TRACEMALLOC DISABLED by IWS_NO_TRACEMALLOC=1", flush=True)
+    elif os.environ.get("IWS_SKIP_ON_TRAIN_START", "0") != "1":
         print("on_train_start...", flush=True)
         model.on_train_start()
     else:
@@ -79,6 +82,14 @@ def main() -> None:
     print("init done, starting component bisection", flush=True)
     import faulthandler, sys
     faulthandler.dump_traceback_later(90, repeat=False, file=sys.stdout, exit=True)
+
+    # Test 0: standalone Conv2d backward (same as smoke test, but after model init)
+    standalone_conv = torch.nn.Conv2d(3, 4, 3, padding=1).to(device)
+    dummy0 = torch.randn(1, 3, 64, 64, device=device)
+    standalone_conv(dummy0).mean().backward()
+    torch.cuda.synchronize()
+    print("TEST0 standalone_conv_backward OK", flush=True)
+    del standalone_conv, dummy0
 
     # Test 1: encoder backward (704 params, trivial)
     dummy_img = torch.randn(1, 3, 224, 224, device=device)
