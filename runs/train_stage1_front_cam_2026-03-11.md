@@ -137,6 +137,12 @@
 - resumed from: `existing pipeline run with Lightning Trainer bypass enabled (IWS_DEBUG_MANUAL_TORCH_LOOP=1, 3 manual steps, same model+dataloader)`
 - node: `nid010545`
 
+## Job (debug rerun)
+- job_id: `2789711`
+- submitted: `2026-03-12 15:14 UTC`
+- resumed from: `LD-path-only A/B test: skip legacy LD patch (IWS_SKIP_LD_PATCH=1) while keeping prior manual-loop debug settings`
+- node: `nid010257`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -207,6 +213,10 @@
 - 2026-03-12 15:03-15:04 UTC - `2789543` reproduces the same cutoff in manual mode: full step-0 markers through `stage1_after_log`, `on_before_backward` printed, but no `on_after_backward` and no manual step completion print.
 - 2026-03-12 15:04 UTC - key conclusion: hang persists even when bypassing Lightning `Trainer.fit`; issue is deeper than high-level Lightning loop plumbing.
 - 2026-03-12 15:04 UTC - canceled `2789543` after capture; final Slurm state `CANCELLED`.
+- 2026-03-12 15:13 UTC - committed/pushed Slurm toggle `IWS_SKIP_LD_PATCH` (`66e460d`) to isolate `LD_LIBRARY_PATH` effects without changing other runtime settings.
+- 2026-03-12 15:14 UTC - submitted isolated LD test `2789711` with `IWS_SKIP_LD_PATCH=1` and same manual-loop debug flags.
+- 2026-03-12 15:14 UTC - `2789711` failed early during import (before training start) with `ImportError: ... GLIBC_2.38 not found` from OpenCV/cv2 (`libGLX.so.0`) when legacy LD patch is skipped.
+- 2026-03-12 15:14 UTC - conclusion from LD-only test: current container startup in this repo still depends on the LD patch to avoid GLIBC/OpenCV import failure; this A/B did not reach backward path.
 
 ## Results
 - final step: `pending`
