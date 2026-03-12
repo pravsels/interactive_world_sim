@@ -9,7 +9,7 @@ and the `LICENSE` file to credit the author.
 import os
 import pathlib
 from abc import ABC
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import hydra
 import lightning.pytorch as pl
@@ -114,11 +114,80 @@ class BaseLightningExperiment(BaseExperiment):
     # each key has to be a yaml file under '[project_root]/configurations/dataset' without .yaml suffix # noqa
     compatible_datasets: Dict = {}
 
+    def _move_to_device(self, obj: Any, device: torch.device) -> Any:
+        if isinstance(obj, torch.Tensor):
+            return obj.to(device, non_blocking=False)
+        if isinstance(obj, dict):
+            return {k: self._move_to_device(v, device) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return type(obj)(self._move_to_device(v, device) for v in obj)
+        return obj
+
     def _get_trainer_strategy(self) -> Union[str, DDPStrategy]:
         # Select distributed strategy from requested config, not visible node GPUs.
         if int(self.cfg.num_devices) * int(self.cfg.num_nodes) > 1:
             return DDPStrategy(find_unused_parameters=True)
         return "auto"
+
+    def _run_manual_torch_loop(self, train_dataloader: TRAIN_DATALOADERS) -> None:
+        assert self.algo is not None
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.algo = self.algo.to(device)
+        self.algo.train()
+        manual_steps = int(os.getenv("IWS_DEBUG_MANUAL_STEPS", "3"))
+        print(
+            cyan("Debug mode:"),
+            f"IWS_DEBUG_MANUAL_TORCH_LOOP=1, running {manual_steps} manual steps",
+        )
+
+        # Disable Lightning logging requirements in manual loop debug mode.
+        original_log = getattr(self.algo, "log", None)
+        original_log_dict = getattr(self.algo, "log_dict", None)
+        self.algo.log = lambda *args, **kwargs: None  # type: ignore[method-assign]
+        self.algo.log_dict = lambda *args, **kwargs: None  # type: ignore[method-assign]
+        if hasattr(self.algo, "on_train_start"):
+            self.algo.on_train_start()
+
+        optim_bundle = self.algo.configure_optimizers()
+        if not isinstance(optim_bundle, dict) or "optimizer" not in optim_bundle:
+            raise ValueError(
+                "Manual debug loop expects configure_optimizers to return a dict "
+                "containing 'optimizer'."
+            )
+        optimizer: torch.optim.Optimizer = optim_bundle["optimizer"]
+
+        try:
+            for step_idx, batch in enumerate(train_dataloader):
+                if step_idx >= manual_steps:
+                    break
+                batch = self._move_to_device(batch, device)
+                if hasattr(self.algo, "on_before_zero_grad"):
+                    self.algo.on_before_zero_grad(optimizer)  # type: ignore[misc]
+                optimizer.zero_grad(set_to_none=True)
+                out = self.algo.training_step(batch, step_idx)
+                if out is None:
+                    print(f"[manual_torch debug] step={step_idx} skipped (None output)")
+                    continue
+                loss = out["loss"] if isinstance(out, dict) else out
+                if not isinstance(loss, torch.Tensor):
+                    raise ValueError("training_step must return a tensor loss in debug mode")
+                if hasattr(self.algo, "on_before_backward"):
+                    self.algo.on_before_backward(loss)  # type: ignore[misc]
+                loss.backward()
+                if hasattr(self.algo, "on_after_backward"):
+                    self.algo.on_after_backward()  # type: ignore[misc]
+                if hasattr(self.algo, "on_before_optimizer_step"):
+                    self.algo.on_before_optimizer_step(optimizer)  # type: ignore[misc]
+                optimizer.step()
+                print(
+                    f"[manual_torch debug] step={step_idx} loss={float(loss.detach().cpu()):.6f}",
+                    flush=True,
+                )
+        finally:
+            if original_log is not None:
+                self.algo.log = original_log  # type: ignore[method-assign]
+            if original_log_dict is not None:
+                self.algo.log_dict = original_log_dict  # type: ignore[method-assign]
 
     def _build_training_loader(
         self,
@@ -250,6 +319,10 @@ class BaseLightningExperiment(BaseExperiment):
 
         if hasattr(self.algo, "set_normalizer"):
             self.algo.set_normalizer(train_dataloader.dataset.get_normalizer())  # type: ignore
+
+        if os.getenv("IWS_DEBUG_MANUAL_TORCH_LOOP", "0") == "1":
+            self._run_manual_torch_loop(train_dataloader)
+            return
 
         trainer.fit(
             self.algo,
