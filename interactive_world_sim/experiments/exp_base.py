@@ -124,14 +124,19 @@ class BaseLightningExperiment(BaseExperiment):
             else self.cfg.training.data.shuffle
         )
         if train_dataset:
-            return torch.utils.data.DataLoader(
-                train_dataset,
+            num_workers = min(os.cpu_count(), self.cfg.training.data.num_workers)
+            loader_kwargs = dict(
                 batch_size=self.cfg.training.batch_size,
-                num_workers=min(os.cpu_count(), self.cfg.training.data.num_workers),
+                num_workers=num_workers,
                 shuffle=shuffle,
                 persistent_workers=False,
                 pin_memory=False,
-                prefetch_factor=1,
+            )
+            if num_workers > 0:
+                loader_kwargs["prefetch_factor"] = 1
+            return torch.utils.data.DataLoader(
+                train_dataset,
+                **loader_kwargs,
             )
         else:
             return None
@@ -146,14 +151,19 @@ class BaseLightningExperiment(BaseExperiment):
             else self.cfg.validation.data.shuffle
         )
         if validation_dataset is not None:
-            return torch.utils.data.DataLoader(
-                validation_dataset,
+            num_workers = min(os.cpu_count(), self.cfg.validation.data.num_workers)
+            loader_kwargs = dict(
                 batch_size=self.cfg.validation.batch_size,
-                num_workers=min(os.cpu_count(), self.cfg.validation.data.num_workers),
+                num_workers=num_workers,
                 shuffle=shuffle,
                 persistent_workers=False,
                 pin_memory=False,
-                prefetch_factor=1,
+            )
+            if num_workers > 0:
+                loader_kwargs["prefetch_factor"] = 1
+            return torch.utils.data.DataLoader(
+                validation_dataset,
+                **loader_kwargs,
             )
         else:
             return None
@@ -168,14 +178,19 @@ class BaseLightningExperiment(BaseExperiment):
             else self.cfg.test.data.shuffle
         )
         if test_dataset:
-            return torch.utils.data.DataLoader(
-                test_dataset,
+            num_workers = min(os.cpu_count(), self.cfg.test.data.num_workers)
+            loader_kwargs = dict(
                 batch_size=self.cfg.test.batch_size,
-                num_workers=min(os.cpu_count(), self.cfg.test.data.num_workers),
+                num_workers=num_workers,
                 shuffle=shuffle,
                 persistent_workers=False,
                 pin_memory=False,
-                prefetch_factor=1,
+            )
+            if num_workers > 0:
+                loader_kwargs["prefetch_factor"] = 1
+            return torch.utils.data.DataLoader(
+                test_dataset,
+                **loader_kwargs,
             )
         else:
             return None
