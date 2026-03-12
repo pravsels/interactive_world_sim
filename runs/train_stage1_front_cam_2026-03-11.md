@@ -259,6 +259,13 @@ This was present in the codebase from the initial commit (not a debugging artifa
 5. **Attention backend** (`attention.py`): GH200 correctly uses math/efficient SDPA (not flash-attention-only A100 path).
 6. **DataLoader** (`exp_base.py`): `prefetch_factor=1` only set when `num_workers > 0`.
 
+## Job (full training run)
+- job_id: `2808067`
+- submitted: `2026-03-12 21:58 UTC`
+- config: `isambard_train.yaml` (batch 16, 1M steps, ckpt every 2000, val every 6000)
+- container: `interactive-world-sim_isambard-arm64.sif` (rebuilt with all fixes)
+- note: first clean run after resolving tracemalloc deadlock. All debug artifacts removed.
+
 ## Results
 - final step: `pending`
 - val_loss: `pending`
@@ -266,5 +273,5 @@ This was present in the codebase from the initial commit (not a debugging artifa
 - wandb offline dir: `pending` (sync later with `wandb sync`)
 
 ## Next
-- submit full training run.
-- monitor and resume as needed.
+- monitor job `2808067` and verify training is progressing (loss decreasing, checkpoints being written).
+- resume from checkpoint if walltime expires before completion.
