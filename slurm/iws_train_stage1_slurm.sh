@@ -24,7 +24,7 @@ REPO_DIR="${REPO_DIR:-$HOME/${PROJECT_NAME}}"
 SCRATCH_ROOT="${SCRATCH_ROOT:-/scratch/${PROJECT_CODE}/${USER}/${PROJECT_NAME}}"
 
 # Scratch-backed paths for heavy files.
-SIF_PATH="${SIF_PATH:-${SCRATCH_ROOT}/containers/interactive-world-sim_isambard-arm64.sif}"
+SIF_PATH="${SIF_PATH:-${SCRATCH_ROOT}/containers/interactive-world-sim_isambard-arm64_singularity.sif}"
 DATA_DIR="${DATA_DIR:-${SCRATCH_ROOT}/data}"
 OUTPUTS_DIR="${OUTPUTS_DIR:-${SCRATCH_ROOT}/outputs}"
 HF_CACHE="${HF_CACHE:-${SCRATCH_ROOT}/huggingface_cache}"
