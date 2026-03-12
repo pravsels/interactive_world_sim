@@ -133,10 +133,21 @@ class BaseLightningExperiment(BaseExperiment):
             return DDPStrategy(find_unused_parameters=True)
         return "auto"
 
+    @staticmethod
+    def _probe_backward(label: str) -> None:
+        t = torch.tensor(1.0, device="cuda", requires_grad=True)
+        t.backward()
+        print(f"[autograd probe] {label}: OK (grad={t.grad})", flush=True)
+
     def _run_manual_torch_loop(self, train_dataloader: TRAIN_DATALOADERS) -> None:
         assert self.algo is not None
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self._probe_backward("before_model_to_device")
+
         self.algo = self.algo.to(device)
+        self._probe_backward("after_model_to_device")
+
         self.algo.train()
         manual_steps = int(os.getenv("IWS_DEBUG_MANUAL_STEPS", "3"))
         call_lightning_hooks = os.getenv("IWS_DEBUG_MANUAL_CALL_HOOKS", "0") == "1"
@@ -157,6 +168,8 @@ class BaseLightningExperiment(BaseExperiment):
         if hasattr(self.algo, "on_train_start"):
             self.algo.on_train_start()
 
+        self._probe_backward("after_on_train_start")
+
         optim_bundle = self.algo.configure_optimizers()
         if not isinstance(optim_bundle, dict) or "optimizer" not in optim_bundle:
             raise ValueError(
@@ -164,12 +177,15 @@ class BaseLightningExperiment(BaseExperiment):
                 "containing 'optimizer'."
             )
         optimizer: torch.optim.Optimizer = optim_bundle["optimizer"]
+        self._probe_backward("after_configure_optimizers")
 
         try:
             for step_idx, batch in enumerate(train_dataloader):
                 if step_idx >= manual_steps:
                     break
                 batch = self._move_to_device(batch, device)
+                if step_idx == 0:
+                    self._probe_backward("after_first_batch_to_device")
                 if call_lightning_hooks and hasattr(self.algo, "on_before_zero_grad"):
                     self.algo.on_before_zero_grad(optimizer)  # type: ignore[misc]
                 optimizer.zero_grad(set_to_none=True)
