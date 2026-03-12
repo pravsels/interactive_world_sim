@@ -48,18 +48,20 @@ def main() -> None:
     print("cudnn_version", torch.backends.cudnn.version(), flush=True)
 
     exp = build_experiment(cfg, logger=None, ckpt_path=None)
-    model = exp._build_algo().to(device)
+    model = exp._build_algo()
+
+    train_loader = exp._build_training_loader()
+    assert train_loader is not None, "Training dataloader is None."
+    if hasattr(model, "set_normalizer"):
+        model.set_normalizer(train_loader.dataset.get_normalizer())  # type: ignore[attr-defined]
+
+    model = model.to(device)
     model.train()
 
     # Avoid Lightning logger/trainer requirements in manual loop mode.
     model.log = lambda *args, **kwargs: None  # type: ignore[attr-defined]
     model.log_dict = lambda *args, **kwargs: None  # type: ignore[attr-defined]
     model.on_train_start()
-
-    train_loader = exp._build_training_loader()
-    assert train_loader is not None, "Training dataloader is None."
-    if hasattr(model, "set_normalizer"):
-        model.set_normalizer(train_loader.dataset.get_normalizer())  # type: ignore[attr-defined]
 
     optim_bundle = model.configure_optimizers()
     optimizer = optim_bundle["optimizer"]
