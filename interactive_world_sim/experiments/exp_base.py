@@ -25,6 +25,10 @@ from interactive_world_sim.utils.print_utils import cyan
 
 torch.set_float32_matmul_precision("high")
 
+if os.getenv("IWS_DEBUG_NO_CUDNN", "0") == "1":
+    torch.backends.cudnn.enabled = False
+    print("[debug] cuDNN DISABLED via IWS_DEBUG_NO_CUDNN=1")
+
 
 class BaseExperiment(ABC):
     """Abstract class for an experiment.
