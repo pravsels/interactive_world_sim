@@ -77,6 +77,42 @@
 - resumed from: `num_workers=0 after DataLoader prefetch fix`
 - node: `nid010541`
 
+## Job (debug rerun)
+- job_id: `2786672`
+- submitted: `2026-03-12 13:15 UTC`
+- resumed from: `num_workers=0 after GH200 attention backend fix`
+- node: `nid010365`
+
+## Job (debug rerun)
+- job_id: `2786694`
+- submitted: `2026-03-12 13:22 UTC`
+- resumed from: `thread-capped debug run (OMP/MKL/OPENBLAS/NUMEXPR=1, num_workers=0)`
+- node: `nid010739`
+
+## Job (debug rerun)
+- job_id: `2786723`
+- submitted: `2026-03-12 13:28 UTC`
+- resumed from: `step-0 instrumentation run (IWS_DEBUG_STEP_TRACE=1, thread caps, num_workers=0)`
+- node: `nid010621`
+
+## Job (debug rerun)
+- job_id: `2786774`
+- submitted: `2026-03-12 13:36 UTC`
+- resumed from: `hook instrumentation run (IWS_DEBUG_STEP_TRACE=1, IWS_DEBUG_HOOK_TRACE=1, thread caps, num_workers=0)`
+- node: `nid011090`
+
+## Job (debug rerun)
+- job_id: `2786935`
+- submitted: `2026-03-12 13:41 UTC`
+- resumed from: `CUDA_LAUNCH_BLOCKING=1 run with step+hook traces, thread caps, num_workers=0`
+- node: `nid010714`
+
+## Job (debug rerun)
+- job_id: `2787050`
+- submitted: `2026-03-12 13:53 UTC`
+- resumed from: `forced pure math SDPA backend (IWS_FORCE_SDPA_MATH=1) with CUDA_LAUNCH_BLOCKING=1 + step/hook traces + thread caps + num_workers=0`
+- node: `pending`
+
 ## Status
 - 2026-03-11 - prepared run log before first submission.
 - 2026-03-11 12:31 UTC - job `2732782` failed in 6s, exit code `1:0`.
@@ -112,6 +148,24 @@
 - 2026-03-12 13:04 UTC - submitted debug rerun `2786567` with `num_workers=0` after fix.
 - 2026-03-12 13:06 UTC - job `2786567` is `RUNNING` on `nid010541`, but still no train/val loss lines or checkpoints yet; one-step GPU sample still shows `0%` util with `~59338 MiB` allocated.
 - 2026-03-12 13:07 UTC - updated root-cause hypothesis: stall is likely not worker-count only; attention backend selection may be wrong on GH200 because code treats all `sm>=8.0` + `.minor==0` GPUs as A100 and forces flash-attention backend.
+- 2026-03-12 13:15 UTC - patched and pushed attention backend selection: now only true A100 (`name contains A100` and `sm_80`) uses flash-attention-only path; GH200 uses math/efficient SDPA backends.
+- 2026-03-12 13:15 UTC - canceled `2786567`, pulled latest on Isambard, and submitted rerun `2786672` with `num_workers=0`.
+- 2026-03-12 13:16 UTC - `2786672` confirms patched backend path in logs (`Non-A100 GPU detected, using math or mem efficient attention if input tensor is on cuda`) and reaches `training_step` entry (`Top 10 memory diff from start to step 0`), but still no step/loss prints or checkpoints.
+- 2026-03-12 13:17 UTC - spot check for `2786672`: still `RUNNING`, GPU sample `util=0%`, memory `59338 MiB / 97871 MiB`; stall remains unresolved.
+- 2026-03-12 13:20 UTC - live attach debugging on `2786672`: gdb attach could not read usable symbols from containerized python binary (`Input/output error`), but `strace` sample shows main and worker threads mostly blocked in `futex(...WAIT...)` and repeated `ppoll(...)=0 (Timeout)` loops (no active compute/data syscalls), confirming the process is synchronization-idle rather than progressing through training steps.
+- 2026-03-12 13:22 UTC - canceled `2786672` and submitted `2786694` with thread caps (`OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`, `NUMEXPR_NUM_THREADS=1`) plus `num_workers=0`.
+- 2026-03-12 13:23-13:24 UTC - monitored `2786694`: behavior unchanged. Job reaches startup/model summary and `Top 10 memory diff from start to step 0` line, but no train/val loss lines or checkpoints. GPU sample remains idle (`util=0%`, memory `59338 MiB / 97871 MiB`).
+- 2026-03-12 13:28 UTC - submitted `2786723` with step-0 markers enabled (`IWS_DEBUG_STEP_TRACE=1`) on top of thread-capped + `num_workers=0` settings.
+- 2026-03-12 13:29-13:30 UTC - marker output for `2786723` reaches all stage-1 checkpoints through `stage1_after_log` on batch 0 (`after_tracemalloc` -> `before/after_normalize` -> `before/after_encoder` -> `before/after_noise_levels` -> `before/after_pred_s` -> `before/after_pred_u` -> `before/after_log`).
+- 2026-03-12 13:30 UTC - despite full batch-0 `training_step` completion, run still emits no loss/progress/checkpoint artifacts afterward. Updated hypothesis: stall is likely in Lightning post-`training_step` path (backward/optimizer/synchronization), not inside dataset load or stage-1 forward/loss code.
+- 2026-03-12 13:36 UTC - submitted `2786774` with hook markers enabled (`IWS_DEBUG_HOOK_TRACE=1`) on top of step markers + thread caps + `num_workers=0`.
+- 2026-03-12 13:37-13:38 UTC - `2786774` prints hook markers through `on_before_zero_grad` and `on_before_backward`, but never prints `on_after_backward` or optimizer-step markers.
+- 2026-03-12 13:38 UTC - refined root-cause localization: stall occurs during/inside backward pass (after `on_before_backward`, before backward completes), not in data loading, forward, loss computation, or pre-backward Lightning plumbing.
+- 2026-03-12 13:41 UTC - canceled `2786774` and submitted `2786935` with `CUDA_LAUNCH_BLOCKING=1` + `HYDRA_FULL_ERROR=1` while keeping step/hook traces and debug caps.
+- 2026-03-12 13:42-13:43 UTC - `2786935` shows the exact same marker cutoff (`on_before_backward` is last hook reached; no `on_after_backward`), and no traceback surfaced in stderr even with launch blocking.
+- 2026-03-12 13:43 UTC - launch-blocking result indicates a hard/stuck backward kernel path (hang without thrown CUDA exception), likely in autograd/backward compute rather than asynchronous error propagation.
+- 2026-03-12 13:53 UTC - canceled `2786935`, patched attention backend with runtime toggle `IWS_FORCE_SDPA_MATH=1`, and submitted `2787050` to force math-only SDPA during the same backward-path diagnostic setup.
+- 2026-03-12 13:57 UTC - `2787050` is currently `PENDING` (no node assigned yet), so no slurm output exists yet for this run.
 
 ## Results
 - final step: `pending`

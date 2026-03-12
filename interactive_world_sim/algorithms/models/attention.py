@@ -1,3 +1,4 @@
+import os
 from functools import wraps
 from typing import Any, Callable, Optional
 
@@ -94,10 +95,15 @@ class Attention(nn.Module):
             k = self.rotary_emb.rotate_queries_or_keys(k)
 
         # Flash / Memory efficient attention leads to cuda errors for large batch sizes
+        force_math_sdpa = os.getenv("IWS_FORCE_SDPA_MATH", "0") == "1"
         backends = (
-            ([SDPBackend.MATH] if q.shape[0] >= 65536 else self.cuda_backends)
-            if q.is_cuda
-            else self.cpu_backends
+            [SDPBackend.MATH]
+            if force_math_sdpa
+            else (
+                ([SDPBackend.MATH] if q.shape[0] >= 65536 else self.cuda_backends)
+                if q.is_cuda
+                else self.cpu_backends
+            )
         )
         q, k, v = map(lambda t: t.contiguous(), (q, k, v))
 
