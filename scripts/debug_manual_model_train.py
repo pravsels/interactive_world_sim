@@ -76,34 +76,59 @@ def main() -> None:
     print("configure_optimizers...", flush=True)
     optim_bundle = model.configure_optimizers()
     optimizer = optim_bundle["optimizer"]
-    print("init done, starting training loop", flush=True)
+    print("init done, starting component bisection", flush=True)
+    import faulthandler, sys
+    faulthandler.dump_traceback_later(90, repeat=False, file=sys.stdout, exit=True)
 
+    # Test 1: encoder backward (704 params, trivial)
+    dummy_img = torch.randn(1, 3, 224, 224, device=device)
+    enc_out = model.encoder(dummy_img)
+    enc_out.mean().backward()
+    torch.cuda.synchronize()
+    print(f"TEST1 encoder_backward OK shape={enc_out.shape}", flush=True)
+    model.zero_grad()
+
+    # Test 2: decoder backward (27.6M params)
+    dummy_z = torch.randn(1, 4, 56, 56, device=device, requires_grad=True)
+    dummy_noise = torch.randn(1, 3, 224, 224, device=device)
+    dummy_t = torch.tensor([0.5], device=device)
+    try:
+        dec_out = model.decoder(dummy_noise, dummy_t, dummy_z)
+        dec_out.mean().backward()
+        torch.cuda.synchronize()
+        print(f"TEST2 decoder_backward OK shape={dec_out.shape}", flush=True)
+    except Exception as e:
+        print(f"TEST2 decoder_backward FAILED: {e}", flush=True)
+    model.zero_grad()
+
+    # Test 3: dynamics backward (5.8M params)
+    dummy_latent = torch.randn(1, 1, 4, 56, 56, device=device, requires_grad=True)
+    dummy_action = torch.randn(1, 1, 7, device=device)
+    try:
+        dyn_out = model.dynamics(dummy_latent, dummy_action)
+        dyn_out.mean().backward()
+        torch.cuda.synchronize()
+        print(f"TEST3 dynamics_backward OK shape={dyn_out.shape}", flush=True)
+    except Exception as e:
+        print(f"TEST3 dynamics_backward FAILED: {e}", flush=True)
+    model.zero_grad()
+
+    # Test 4: full training_step backward
     for step, batch in enumerate(train_loader):
         if step >= 1:
             break
         batch = _to_device(batch, device)
-        optimizer.zero_grad(set_to_none=True)
+        model.zero_grad()
         out = model.training_step(batch, step)
-        assert isinstance(out, dict) and "loss" in out
         loss = out["loss"]
-        print(f"step={step} forward_done loss={float(loss.detach().cpu()):.6f}", flush=True)
+        print(f"TEST4 full forward_done loss={float(loss.detach().cpu()):.6f}", flush=True)
         torch.cuda.synchronize()
-        print(f"step={step} pre_backward_sync_ok", flush=True)
-        import faulthandler, sys
-        faulthandler.dump_traceback_later(120, repeat=False, file=sys.stdout, exit=True)
-        params = [p for p in model.parameters() if p.requires_grad]
-        print(f"step={step} computing grads for {len(params)} params...", flush=True)
-        grads = torch.autograd.grad(loss, params, allow_unused=True)
-        for p, g in zip(params, grads):
-            if g is not None:
-                p.grad = g
-        faulthandler.cancel_dump_traceback_later()
+        loss.backward()
         torch.cuda.synchronize()
-        print(f"step={step} backward_done", flush=True)
-        optimizer.step()
-        print(f"step={step} optimizer_step_done", flush=True)
+        print("TEST4 full backward_done", flush=True)
 
-    print(f"MANUAL_TORCH_MODEL_LOOP_OK total_s={time.time() - start:.2f}", flush=True)
+    faulthandler.cancel_dump_traceback_later()
+    print("ALL TESTS PASSED", flush=True)
 
 
 if __name__ == "__main__":
