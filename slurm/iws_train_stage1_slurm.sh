@@ -106,11 +106,10 @@ apptainer exec --nv \
   --bind "${PYTHON_EXT_DIR}:${PYTHON_EXT_DIR}" \
   "${SIF_PATH}" \
   bash -lc "cd /workspace && \
-    TORCH_LIB=\$(python -c 'import torch; print(torch.__path__[0] + \"/lib\")') && \
-    export LD_LIBRARY_PATH=\${TORCH_LIB}:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu:\$LD_LIBRARY_PATH && \
-    echo \"TORCH_LIB=\${TORCH_LIB}\" && \
-    echo \"LD_LIBRARY_PATH=\$LD_LIBRARY_PATH\" && \
-    python -c 'import torch; print(\"cudnn_version:\", torch.backends.cudnn.version())' && \
+    TORCH_SITE=\$(python -c 'import torch; print(torch.__path__[0] + \"/lib\")') && \
+    NVIDIA_CUDNN=\$(python -c 'import nvidia.cudnn; import os; print(os.path.join(os.path.dirname(nvidia.cudnn.__file__), \"lib\"))' 2>/dev/null || echo '') && \
+    export LD_LIBRARY_PATH=\${TORCH_SITE}\${NVIDIA_CUDNN:+:\${NVIDIA_CUDNN}}:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu:\$LD_LIBRARY_PATH && \
+    python -c 'import torch; v=torch.backends.cudnn.version(); print(f\"cudnn_version={v}\"); assert v >= 91000, f\"cuDNN {v} too old\"' && \
     export HF_HOME=/root/.cache/huggingface && \
     export WANDB_DIR=${WANDB_DIR} && \
     export WANDB_CACHE_DIR=${WANDB_CACHE_DIR} && \
