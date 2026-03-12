@@ -79,6 +79,10 @@ def main() -> None:
         print(f"step={step} forward_done loss={float(loss.detach().cpu()):.6f}", flush=True)
         torch.cuda.synchronize()
         print(f"step={step} cuda_synced_pre_backward", flush=True)
+        # Probe: dummy scalar backward to warm up autograd engine
+        probe = torch.tensor(1.0, device=device, requires_grad=True)
+        (probe * 1.0).backward()
+        print(f"step={step} probe_backward_done", flush=True)
         loss.backward()
         torch.cuda.synchronize()
         print(f"step={step} backward_done", flush=True)
