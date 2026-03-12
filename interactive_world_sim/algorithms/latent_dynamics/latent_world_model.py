@@ -487,6 +487,12 @@ class LatentWorldModel(BasePytorchAlgo):
 
     def training_step(self, batch: dict, batch_idx: int) -> STEP_OUTPUT:
         """Training step of the model"""
+        debug_step_trace = os.getenv("IWS_DEBUG_STEP_TRACE", "0") == "1" and batch_idx == 0
+
+        def _debug_mark(stage: str) -> None:
+            if debug_step_trace:
+                print(f"[training_step debug] batch_idx={batch_idx} stage={stage}", flush=True)
+
         if batch["obs"][self.obs_keys[0]].shape[0] == 0:
             return None
         # normalize input
@@ -497,16 +503,20 @@ class LatentWorldModel(BasePytorchAlgo):
             print(f"\n[ Top 10 memory diff from start to step {batch_idx} ]")
             for stat in top_stats[:10]:
                 print(stat)
+        _debug_mark("after_tracemalloc")
         assert "valid_mask" not in batch
+        _debug_mark("before_normalize")
         obs_ls = [self.normalizer[k].normalize(batch["obs"][k]) for k in self.obs_keys]
         obs = torch.cat(obs_ls, dim=2)
         action = self.normalizer["action"].normalize(batch["action"])  # (B, T, A)
+        _debug_mark("after_normalize")
 
         obs = obs.float()
         action = action.float()
 
         xs = obs  # (B, T, C, H, W)
         xs = rearrange(xs, "b t c h w -> (b t) c h w")
+        _debug_mark("after_rearrange")
 
         output_dict = {}
 
@@ -514,22 +524,27 @@ class LatentWorldModel(BasePytorchAlgo):
 
         if self.training_stage == 1:
             # stage 1: train encoder and decoder
+            _debug_mark("stage1_before_encoder")
             z = self.encoder_forward(xs)  # (B*T, C, H, W)
+            _debug_mark("stage1_after_encoder")
             if self.robust_latent:
                 z += torch.randn_like(z) * 0.02
 
+            _debug_mark("stage1_before_noise_levels")
             t, s = self._generate_noise_levels(xs[None], self.dec_infer_steps)  # (1, B)
             weights_t = self.noise_scheduler.get_weights(t)[0]  # (1, B)
             weights_s = self.noise_scheduler.get_weights(s)[0]  # (1, B)
             noisy_xs_t, noisy_xs_s = self.noise_scheduler.add_noise_to_t_s(
                 xs[None], t, s
             )  # (1, B, C, H, W)
+            _debug_mark("stage1_after_noise_levels")
             noisy_xs_t = noisy_xs_t.squeeze(0)  # (B, C, H, W)
             noisy_xs_s = noisy_xs_s.squeeze(0)  # (B, C, H, W)
             t = t.squeeze(0)  # (B)
             s = s.squeeze(0)  # (B)
 
             u = torch.zeros_like(t).to(self.device)
+            _debug_mark("stage1_before_pred_s")
             pred_s = self._forward(
                 self.decoder,
                 noisy_xs_t,
@@ -537,7 +552,9 @@ class LatentWorldModel(BasePytorchAlgo):
                 s,
                 external_cond=z,
             )
+            _debug_mark("stage1_after_pred_s")
             if self.dec_infer_steps > 1:
+                _debug_mark("stage1_before_pred_u")
                 pred_u = self._forward(
                     self.decoder,
                     noisy_xs_s,
@@ -545,6 +562,7 @@ class LatentWorldModel(BasePytorchAlgo):
                     u,
                     external_cond=z,
                 )
+                _debug_mark("stage1_after_pred_u")
 
             if self.last_frame_loss_only:
                 loss_s = F.mse_loss(
@@ -581,7 +599,9 @@ class LatentWorldModel(BasePytorchAlgo):
                     loss = loss_s
                 loss = loss.mean()
 
+            _debug_mark("stage1_before_log")
             self.log("training/rec_loss", loss)
+            _debug_mark("stage1_after_log")
             output_dict = {
                 "loss": loss,
             }
