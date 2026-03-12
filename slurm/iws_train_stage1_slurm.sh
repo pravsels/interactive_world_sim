@@ -107,8 +107,8 @@ apptainer exec --nv \
   "${SIF_PATH}" \
   bash -lc "cd /workspace && \
     TORCH_LIB=\$(python -c 'import torch; print(torch.__path__[0] + \"/lib\")') && \
-    export LD_LIBRARY_PATH=\${TORCH_LIB}:\$LD_LIBRARY_PATH && \
-    echo \"LD_LIBRARY_PATH: prepended PyTorch lib dir (\${TORCH_LIB}) to fix cuDNN priority\" && \
+    export LD_LIBRARY_PATH=\${TORCH_LIB}:/usr/lib/aarch64-linux-gnu:/lib/aarch64-linux-gnu:\$LD_LIBRARY_PATH && \
+    echo \"LD_LIBRARY_PATH: torch/lib first (cuDNN 9.10.2), then container syslibs (GLX), then Apptainer --nv\" && \
     export HF_HOME=/root/.cache/huggingface && \
     export WANDB_DIR=${WANDB_DIR} && \
     export WANDB_CACHE_DIR=${WANDB_CACHE_DIR} && \
