@@ -41,6 +41,7 @@ algorithm:
   latent_dim: 512
   action_dim: 7
   training_stage: 1
+  val_render: False
 
 # Resume option is set at submit time from slurm script env vars:
 # - LOAD_CKPT_PATH=/scratch/.../outputs/.../checkpoints/last.ckpt
