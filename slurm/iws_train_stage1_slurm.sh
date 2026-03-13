@@ -56,7 +56,7 @@ DATASET_OVERRIDE_ARGS="${DATASET_OVERRIDE_ARGS:-dataset.h5_path=${WAN_H5_CONTAIN
 # - LOAD_CKPT_PATH: absolute/local path to a checkpoint file to load.
 LOAD_ARGS=""
 if [[ -n "${LOAD_CKPT_PATH:-}" ]]; then
-  LOAD_ARGS="${LOAD_ARGS} 'load=${LOAD_CKPT_PATH}'"
+  LOAD_ARGS="${LOAD_ARGS} load=${LOAD_CKPT_PATH}"
 fi
 
 TRAIN_EXTRA_ARGS="${TRAIN_EXTRA_ARGS:-}"

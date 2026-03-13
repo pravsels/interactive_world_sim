@@ -43,5 +43,5 @@ algorithm:
   training_stage: 1
   val_render: False
 
-# Resume option is set at submit time from slurm script env vars:
-# - LOAD_CKPT_PATH=/scratch/.../outputs/.../checkpoints/last.ckpt
+# Resume: set to checkpoint path on scratch, or null for fresh run.
+load: /scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-13/07-08-12/checkpoints/epoch=0-step=6000.ckpt
