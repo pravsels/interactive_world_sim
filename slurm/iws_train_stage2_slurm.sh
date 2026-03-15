@@ -50,7 +50,9 @@ CONFIG_NAME="$(basename "${TRAIN_CONFIG_YAML}" .yaml)"
 # Camera convention reference: camera_0 = wrist, camera_1 = front.
 WAN_H5_PATH="${WAN_H5_PATH:-/scratch/u6cr/pravsels.u6cr/latent_safety/arx5_datasets_6Feb_26_wan224.h5}"
 WAN_H5_CONTAINER_PATH="${WAN_H5_CONTAINER_PATH:-/mnt/wan_dataset.h5}"
-DATASET_OVERRIDE_ARGS="${DATASET_OVERRIDE_ARGS:-dataset.h5_path=${WAN_H5_CONTAINER_PATH}}"
+WAN_STATS_JSON_PATH="${WAN_STATS_JSON_PATH:-/scratch/u6cr/pravsels.u6cr/latent_safety/arx5_datasets_6Feb_26_stats.json}"
+WAN_STATS_JSON_CONTAINER_PATH="${WAN_STATS_JSON_CONTAINER_PATH:-/mnt/wan_dataset_stats.json}"
+DATASET_OVERRIDE_ARGS="${DATASET_OVERRIDE_ARGS:-dataset.h5_path=${WAN_H5_CONTAINER_PATH} dataset.stats_json_path=${WAN_STATS_JSON_CONTAINER_PATH}}"
 
 # Resume helper for 1-day walltime jobs.
 # - LOAD_CKPT_PATH: absolute/local path to a stage-2 checkpoint to load.
@@ -69,6 +71,10 @@ if [[ ! -f "${WAN_H5_PATH}" ]]; then
   echo "WAN H5 not found: ${WAN_H5_PATH}" >&2
   exit 1
 fi
+if [[ ! -f "${WAN_STATS_JSON_PATH}" ]]; then
+  echo "WAN stats json not found: ${WAN_STATS_JSON_PATH}" >&2
+  exit 1
+fi
 
 echo "[$(date -Is)] starting training on $(hostname)"
 echo "TRAIN_CONFIG_YAML=${TRAIN_CONFIG_YAML}"
@@ -79,6 +85,8 @@ echo "DATA_DIR=${DATA_DIR}"
 echo "OUTPUTS_DIR=${OUTPUTS_DIR}"
 echo "WAN_H5_PATH=${WAN_H5_PATH}"
 echo "WAN_H5_CONTAINER_PATH=${WAN_H5_CONTAINER_PATH}"
+echo "WAN_STATS_JSON_PATH=${WAN_STATS_JSON_PATH}"
+echo "WAN_STATS_JSON_CONTAINER_PATH=${WAN_STATS_JSON_CONTAINER_PATH}"
 echo "PYTHON_EXT_DIR=${PYTHON_EXT_DIR}"
 echo "CONFIG_NAME=${CONFIG_NAME}"
 if [[ -n "${LOAD_CKPT_PATH:-}" ]]; then
@@ -98,6 +106,7 @@ apptainer exec --nv \
   --bind "${REPO_DIR}:/workspace" \
   --bind "${DATA_DIR}:/workspace/data" \
   --bind "${WAN_H5_PATH}:${WAN_H5_CONTAINER_PATH}" \
+  --bind "${WAN_STATS_JSON_PATH}:${WAN_STATS_JSON_CONTAINER_PATH}" \
   --bind "${OUTPUTS_DIR}:/workspace/outputs" \
   --bind "${HF_CACHE}:/root/.cache/huggingface" \
   --bind "${WANDB_DIR}:${WANDB_DIR}" \

@@ -16,7 +16,8 @@ wandb:
 dataset:
   # h5_path is injected at submit time by slurm script (WAN_H5_PATH -> dataset.h5_path).
   # Camera convention: camera_0_color = wrist, camera_1_color = front.
-  stats_json_path: /scratch/u6cr/pravsels.u6cr/latent_safety/arx5_datasets_6Feb_26_stats.json
+  # stats_json_path is injected at submit time by slurm script.
+  stats_json_path: /mnt/wan_dataset_stats.json
   horizon: 10
   val_horizon: 200
   obs_keys: [camera_1_color]
@@ -48,7 +49,8 @@ algorithm:
   noise_scheduler:
     loss_weighting: uniform
   # Stage-1 checkpoint to initialize encoder/decoder and conditioning stack.
-  load_ae: /scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-13/10-25-30/checkpoints/epoch=0-step=64000.ckpt
+  # Use container-visible outputs path (host scratch outputs is bind-mounted to /workspace/outputs).
+  load_ae: /workspace/outputs/2026-03-13/10-25-30/checkpoints/epoch=0-step=64000.ckpt
 
 # For stage-2 fresh start, keep this null.
 # Resume by setting `load` to a stage-2 checkpoint path.
