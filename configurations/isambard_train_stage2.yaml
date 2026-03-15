@@ -29,7 +29,7 @@ experiment:
     max_steps: 1000005
     log_every_n_steps: 100
     data:
-      num_workers: 4
+      num_workers: 8
     checkpointing:
       # Daily walltime on Isambard; checkpoint often enough to resume safely.
       every_n_train_steps: 10000
@@ -38,7 +38,7 @@ experiment:
     batch_size: 2
     val_every_n_step: 30000
     data:
-      num_workers: 4
+      num_workers: 8
 
 algorithm:
   latent_dim: 512
