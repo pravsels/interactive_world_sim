@@ -259,19 +259,57 @@ This was present in the codebase from the initial commit (not a debugging artifa
 5. **Attention backend** (`attention.py`): GH200 correctly uses math/efficient SDPA (not flash-attention-only A100 path).
 6. **DataLoader** (`exp_base.py`): `prefetch_factor=1` only set when `num_workers > 0`.
 
-## Job (full training run)
+## Job (full training run — OOM)
 - job_id: `2808067`
 - submitted: `2026-03-12 21:58 UTC`
 - config: `isambard_train.yaml` (batch 16, 1M steps, ckpt every 2000, val every 6000)
 - container: `interactive-world-sim_isambard-arm64.sif` (rebuilt with all fixes)
-- note: first clean run after resolving tracemalloc deadlock. All debug artifacts removed.
+- note: first clean run after resolving tracemalloc deadlock. Training started and GPU hit 100% util, but OOM killed after ~1h.
+- failure: `Detected 1 oom_kill event` — CPU memory exceeded 128G Slurm allocation (8 train + 16 val dataloader workers loading H5 data).
+- fix: reduced workers to 4/4, bumped Slurm mem to 256G.
+
+## Job (full training run — val_render crash)
+- job_id: `2813013`
+- submitted: `2026-03-13 07:10 UTC`
+- config: `isambard_train.yaml` (batch 16, 1M steps, 4 workers, 256G mem)
+- container: `interactive-world-sim_isambard-arm64.sif`
+- note: training ran successfully for 6000 steps (2.5h, GPU 60-100% util, 0.80 it/s). Crashed at first validation (step 6000) in `on_validation_epoch_end` → `log_video` → `wandb.Video` requires `moviepy` and `imageio` which are not in the container.
+- checkpoint saved: `epoch=0-step=6000.ckpt` (383MB)
+- wandb synced run: `https://wandb.ai/pravsels/interactive_world_sim/runs/g3rkdc73`
+- fix: set `val_render: False` in isambard config.
+
+## Job (resumed from step 6000 — Hydra parse error)
+- job_id: `2815001`
+- submitted: `2026-03-13 09:42 UTC`
+- failure: `mismatched input '=' expecting <EOF>` — Hydra parser choked on `=` signs in checkpoint filename (`epoch=0-step=6000.ckpt`).
+- fix: quoted `LOAD_CKPT_PATH` value in slurm script.
+
+## Job (resumed from step 6000)
+- job_id: `2815251`
+- submitted: `2026-03-13 10:25 UTC`
+- config: `isambard_train.yaml` (batch 16, 1M steps, 4 workers, 256G mem, val_render off)
+- resumed from: `epoch=0-step=6000.ckpt`
+- outcome: failed in 15s with exit code `1:0` (early-launch failure), re-submitted immediately.
+
+## Job (resumed from step 6000)
+- job_id: `2815284`
+- submitted: `2026-03-13 10:25 UTC`
+- config: `isambard_train.yaml` (batch 16, 1M steps, 4 workers, 256G mem, val_render off)
+- resumed from: `/workspace/outputs/2026-03-13/07-08-12/checkpoints/epoch=0-step=6000.ckpt`
+- node: `nid010184`
+- outcome: hit Slurm walltime limit (`TIMEOUT`) after `1-00:00:18`; apptainer step completed but batch step canceled on time limit.
+- checkpoint saved: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-13/10-25-30/checkpoints/epoch=0-step=64000.ckpt`
+- wandb offline dir: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-13/10-25-30/wandb/offline-run-20260313_102540-7gximny3`
+- wandb synced run: `https://wandb.ai/pravsels/interactive_world_sim/runs/7gximny3`
 
 ## Results
-- final step: `pending`
+- final step: `64000` (latest checkpoint before timeout)
 - val_loss: `pending`
-- checkpoint: `pending`
-- wandb offline dir: `pending` (sync later with `wandb sync`)
+- training/rec_loss: `0.0037808 -> 0.0004945` over steps `6099 -> 64099` (min `0.0001879`)
+- checkpoint: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-13/10-25-30/checkpoints/epoch=0-step=64000.ckpt`
+- wandb offline dir: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-13/10-25-30/wandb/offline-run-20260313_102540-7gximny3`
+- wandb synced run: `https://wandb.ai/pravsels/interactive_world_sim/runs/7gximny3`
 
 ## Next
-- monitor job `2808067` and verify training is progressing (loss decreasing, checkpoints being written).
-- resume from checkpoint if walltime expires before completion.
+- resume from `epoch=0-step=64000.ckpt` in the next 1-day run.
+- monitor next resumed job and capture first/last logged losses for this segment.

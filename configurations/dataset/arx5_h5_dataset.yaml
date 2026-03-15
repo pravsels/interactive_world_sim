@@ -14,6 +14,8 @@ val_ratio: 0.1
 skip_idx: 1
 resolution: 128
 goal_sample: intermediate
+# Optional precomputed stats JSON to avoid scanning all trajectories for normalizer stats.
+stats_json_path: null
 
 # ARX5 field mappings
 action_key: actions_delta

@@ -1,5 +1,7 @@
 import copy
+import json
 import re
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -100,6 +102,13 @@ class Arx5H5Dataset(BaseImageDataset):
         self.lowdim_key_map = (
             dict(cfg.lowdim_key_map) if "lowdim_key_map" in cfg else dict()
         )
+        self.stats_json_path = (
+            str(cfg.stats_json_path)
+            if "stats_json_path" in cfg and cfg.stats_json_path is not None
+            else None
+        )
+        self._stats_json = self._load_stats_json(self.stats_json_path)
+        self._stats_json_log_emitted = False
 
         self.aug_mode = cfg.aug_mode
         if self.aug_mode == "img_aug":
@@ -379,13 +388,67 @@ class Arx5H5Dataset(BaseImageDataset):
         assert sum_v is not None and sumsq_v is not None
         return _running_stats_finalize(min_v, max_v, sum_v, sumsq_v, count)
 
+    def _load_stats_json(self, path: Optional[str]) -> Optional[Dict[str, np.ndarray]]:
+        if path is None:
+            return None
+        stats_path = Path(path)
+        if not stats_path.exists():
+            raise FileNotFoundError(f"stats_json_path not found: {stats_path}")
+        with stats_path.open("r", encoding="utf-8") as f:
+            raw = json.load(f)
+        parsed: Dict[str, np.ndarray] = {}
+        for key, value in raw.items():
+            if isinstance(value, list):
+                parsed[key] = np.asarray(value, dtype=np.float32)
+        return parsed
+
+    def _stats_from_json_prefix(self, prefix: str) -> Optional[Dict[str, np.ndarray]]:
+        if self._stats_json is None:
+            return None
+        min_key = f"{prefix}_min"
+        max_key = f"{prefix}_max"
+        mean_key = f"{prefix}_mean"
+        std_key = f"{prefix}_std"
+        required = [min_key, max_key, mean_key, std_key]
+        if not all(k in self._stats_json for k in required):
+            return None
+        return {
+            "min": self._stats_json[min_key],
+            "max": self._stats_json[max_key],
+            "mean": self._stats_json[mean_key],
+            "std": self._stats_json[std_key],
+        }
+
+    def _get_stats_for_h5_key(self, h5_key: str) -> Dict[str, np.ndarray]:
+        if self._stats_json is not None:
+            prefixes: List[str] = []
+            if h5_key == self.action_key:
+                # action_key is usually actions_delta in this dataset.
+                prefixes.extend(["action", "actions_delta", "actions"])
+            elif h5_key == self.state_key:
+                prefixes.extend(["state", "states"])
+            else:
+                prefixes.append(h5_key)
+            for prefix in prefixes:
+                stat = self._stats_from_json_prefix(prefix)
+                if stat is not None:
+                    if not self._stats_json_log_emitted and self.stats_json_path is not None:
+                        print(
+                            f"[Arx5H5Dataset] using stats_json_path={self.stats_json_path} "
+                            f"for normalizer stats (matched '{prefix}' for key '{h5_key}')",
+                            flush=True,
+                        )
+                        self._stats_json_log_emitted = True
+                    return stat
+        return self._build_stats_for_key(h5_key)
+
     def get_normalizer(self, mode: str = "none", **kwargs: dict) -> LinearNormalizer:
         normalizer = LinearNormalizer()
-        action_stats = self._build_stats_for_key(self.action_key)
+        action_stats = self._get_stats_for_h5_key(self.action_key)
         normalizer["action"] = get_range_normalizer_from_stat(action_stats)
 
         for key in self.lowdim_keys:
-            stat = self._build_stats_for_key(self._resolve_lowdim_h5_key(key))
+            stat = self._get_stats_for_h5_key(self._resolve_lowdim_h5_key(key))
             if key.endswith("quat") or key.endswith("vel") or key.endswith("pos"):
                 normalizer[key] = get_identity_normalizer_from_stat(stat)
             elif key.endswith("qpos"):
