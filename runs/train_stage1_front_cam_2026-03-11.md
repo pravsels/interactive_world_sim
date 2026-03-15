@@ -313,3 +313,4 @@ This was present in the codebase from the initial commit (not a debugging artifa
 ## Next
 - resume from `epoch=0-step=64000.ckpt` in the next 1-day run.
 - monitor next resumed job and capture first/last logged losses for this segment.
+- related stage-2 run log: `runs/train_stage2_front_cam_2026-03-15.md`
