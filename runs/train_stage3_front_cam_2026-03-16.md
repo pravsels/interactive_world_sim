@@ -42,13 +42,26 @@
   - `sacct`: `RUNNING`, exit code `0:0`
 - telemetry sample:
   - `nvidia-smi`: `GPU util 100%`, `VRAM 67861/97871 MiB`, `power 414.51 W` (sampled at `13:55:08` UTC)
+- 2026-03-16 21:14 UTC - run failed during validation dataloader with:
+  - `ValueError: could not broadcast input array from shape (199,7) into shape (0,7)`
+  - stack trace points to `interactive_world_sim/datasets/latent_dynamics/arx5_h5_dataset.py::_pad_to_sequence` from validation loop.
+- root cause identified:
+  - `get_validation_dataset()` builds indices with `val_horizon` but copied dataset still sampled with train `sequence_length` (`horizon`).
+  - with `horizon=1` and `val_horizon=200`, val indices and sampling length diverged, causing invalid slice placement.
+- fix prepared and validated:
+  - patched `get_validation_dataset()` to set `val_set.sequence_length = val_set.val_horizon`.
+  - reproduced failure on synthetic h5 before patch; validation sample succeeds after patch (`action` shape `(200, 7)`).
 
 ## Results
-- state: `running`
-- runtime: `in progress`
-- training/validation metrics: `pending`
-- checkpoint path: `pending`
+- state: `failed`
+- slurm job: `2896349`
+- runtime window: `2026-03-16T13:51:57Z` -> `2026-03-16T21:14:04Z` (~`7h22m`)
+- failure stage: `validation dataloader` at first validation pass (`step 30000`)
+- error class: `ValueError` (sequence padding mismatch)
+- checkpoint path: `not reached for this segment`
 
 ## Next
-- monitor `slurm-2896349.out/.err` for first checkpoint and stable loss progression.
-- sync W&B offline run once the segment completes.
+- sync patched dataset file to Isambard repo.
+- resubmit: `sbatch slurm/iws_train_stage3_slurm.sh`
+- monitor new `slurm-<jobid>.out/.err` through first validation boundary.
+- sync W&B offline run once a healthy segment completes.

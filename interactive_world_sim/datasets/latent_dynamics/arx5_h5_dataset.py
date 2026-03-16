@@ -472,6 +472,9 @@ class Arx5H5Dataset(BaseImageDataset):
     def get_validation_dataset(self) -> "BaseImageDataset":
         val_set = copy.copy(self)
         val_set.is_val = True
+        # Validation indices are built with val_horizon, so sampling must use
+        # the same sequence length to avoid sample_start/sample_end mismatches.
+        val_set.sequence_length = val_set.val_horizon
         val_set.indices = create_indices(
             episode_ends=self.episode_ends,
             sequence_length=self.val_horizon,
