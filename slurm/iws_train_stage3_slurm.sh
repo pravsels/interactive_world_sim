@@ -61,16 +61,6 @@ DATASET_OVERRIDE_ARGS="${DATASET_OVERRIDE_ARGS:-dataset.h5_path=${WAN_H5_CONTAIN
 DEFAULT_LOAD_CKPT_PATH="${DEFAULT_LOAD_CKPT_PATH:-/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-16/13-52-11/checkpoints/epoch=0-step=30000.ckpt}"
 LOAD_CKPT_PATH="${LOAD_CKPT_PATH:-${DEFAULT_LOAD_CKPT_PATH}}"
 
-# Hydra override grammar treats '=' specially. If checkpoint filenames include '=',
-# create a stable symlink without '=' under OUTPUTS_DIR (which is bind-mounted to /workspace/outputs).
-if [[ -n "${LOAD_CKPT_PATH}" && "${LOAD_CKPT_PATH}" == *"="* ]]; then
-  RESUME_LINK_DIR="${OUTPUTS_DIR}/resume_ckpts"
-  mkdir -p "${RESUME_LINK_DIR}"
-  SAFE_LOAD_CKPT_PATH="${RESUME_LINK_DIR}/stage3_resume_step30000.ckpt"
-  ln -sfn "${LOAD_CKPT_PATH}" "${SAFE_LOAD_CKPT_PATH}"
-  LOAD_CKPT_PATH="${SAFE_LOAD_CKPT_PATH}"
-fi
-
 LOAD_ARGS=""
 if [[ -n "${LOAD_CKPT_PATH}" ]]; then
   if [[ ! -e "${LOAD_CKPT_PATH}" ]]; then
@@ -82,7 +72,9 @@ if [[ -n "${LOAD_CKPT_PATH}" ]]; then
   if [[ "${LOAD_CKPT_PATH}" == "${OUTPUTS_DIR}"/* ]]; then
     LOAD_CKPT_CONTAINER_PATH="/workspace/outputs/${LOAD_CKPT_PATH#${OUTPUTS_DIR}/}"
   fi
-  LOAD_ARGS="${LOAD_ARGS} load=${LOAD_CKPT_CONTAINER_PATH}"
+  # Keep using the same checkpoint file; just escape '=' for Hydra override parsing.
+  LOAD_CKPT_HYDRA_PATH="${LOAD_CKPT_CONTAINER_PATH//=/\\=}"
+  LOAD_ARGS="${LOAD_ARGS} load=${LOAD_CKPT_HYDRA_PATH}"
 fi
 
 TRAIN_EXTRA_ARGS="${TRAIN_EXTRA_ARGS:-}"
