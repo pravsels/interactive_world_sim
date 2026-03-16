@@ -32,7 +32,12 @@ from interactive_world_sim.algorithms.latent_dynamics.latent_world_model import 
     LatentWorldModel,
 )
 from interactive_world_sim.utils.normalizer import get_image_range_normalizer
-from scripts.inference.slider_control_utils import compute_slider_delta_action
+try:
+    # Works when invoked from repo root as: python -m scripts.inference.stage2_slider_eval
+    from scripts.inference.slider_control_utils import compute_slider_delta_action
+except ModuleNotFoundError:
+    # Works when invoked as a file path: python scripts/inference/stage2_slider_eval.py
+    from slider_control_utils import compute_slider_delta_action
 
 
 def _resolve_camera_dataset_key(dataset_cfg: Any, obs_key: str) -> str:
@@ -81,26 +86,60 @@ def _decode_one(
     return (np.clip(img, 0.0, 1.0) * 255.0).astype(np.uint8)
 
 
-def _read_slider_values(window: str, action_dim: int) -> np.ndarray:
-    vals = np.zeros((action_dim,), dtype=np.float32)
-    for i in range(action_dim):
-        p = cv2.getTrackbarPos(f"a{i}", window)  # [0, 200]
+def _read_slider_values(window: str, slider_labels: list[str]) -> np.ndarray:
+    vals = np.zeros((len(slider_labels),), dtype=np.float32)
+    for i, label in enumerate(slider_labels):
+        p = cv2.getTrackbarPos(label, window)  # [0, 200]
         vals[i] = (float(p) - 100.0) / 100.0  # [-1, 1]
     return vals
 
 
+def _resolve_slider_labels(action_dim: int, override: str | None) -> list[str]:
+    if override:
+        labels = [s.strip() for s in override.split(",") if s.strip()]
+        if len(labels) != action_dim:
+            raise ValueError(
+                f"--joint-names expects {action_dim} comma-separated names, got {len(labels)}"
+            )
+        return labels
+
+    if action_dim == 7:
+        # Matches ARX5 MOTOR_NAMES order from ../lerobot-arx5/arx5_common/config.py
+        return [
+            "shoulder_pan",
+            "shoulder_lift",
+            "elbow_flex",
+            "wrist_flex",
+            "wrist_roll",
+            "wrist_rotate",
+            "gripper",
+        ]
+    return [f"action_{i}" for i in range(action_dim)]
+
+
 def _step_latent(
     model: LatentWorldModel,
-    latent_bchw: torch.Tensor,
-    action_ba: torch.Tensor,
+    seed_latent_bchw: torch.Tensor,
+    action_seq_bta_norm: torch.Tensor,
 ) -> torch.Tensor:
-    # dynamics_forward expects action length >= history length + 1.
-    # Build a tiny 2-step chunk: [zero_action, user_action_delta].
-    zero = torch.zeros_like(action_ba)
-    action_seq = torch.stack([zero, action_ba], dim=1)  # (1, 2, A)
+    # Replay-style rollout from a fixed seed latent with full action history.
+    # dynamics_forward expects (B, T_hist, C, H, W) and (B, T_hist + T_act, A).
+    # With T_hist=1 seed frame, action sequence length N yields N-1 predicted frames.
+    # The model internally applies a sliding context window of size model.n_tokens.
     with torch.no_grad():
-        pred = model.dynamics_forward(latent_bchw[:, None], action_seq)  # (1, 1, C, H, W)
-    return pred[:, -1]
+        z_roll = model.dynamics_forward(seed_latent_bchw[:, None], action_seq_bta_norm)
+    z_full = torch.cat([seed_latent_bchw[:, None], z_roll], dim=1)
+    return z_full[:, -1]
+
+
+def _format_action(action: np.ndarray) -> str:
+    return np.array2string(
+        action,
+        precision=4,
+        suppress_small=True,
+        floatmode="fixed",
+        separator=", ",
+    )
 
 
 def _compose_frame(
@@ -187,6 +226,7 @@ def run(args: argparse.Namespace) -> None:
     model.eval()
     model.to(device)
     image_normalizer = get_image_range_normalizer().to(device)
+    action_normalizer = model.normalizer["action"]
 
     init_t = (
         torch.from_numpy(np.transpose(init_img.astype(np.float32) / 255.0, (2, 0, 1)))
@@ -209,14 +249,22 @@ def run(args: argparse.Namespace) -> None:
             "and run with X11 forwarding."
         ) from exc
 
-    for i in range(action_dim):
-        cv2.createTrackbar(f"a{i}", window, 100, 200, lambda _x: None)
+    slider_labels = _resolve_slider_labels(action_dim, args.joint_names)
+    for label in slider_labels:
+        cv2.createTrackbar(label, window, 100, 200, lambda _x: None)
 
     step_idx = 0
-    prev_slider = _read_slider_values(window, action_dim)
+    prev_slider = _read_slider_values(window, slider_labels)
+    # Keep replay-style action history. The first zero action is a seed placeholder
+    # so that after one user step the sequence length is 2 (matching prior semantics).
+    action_history_norm: list[torch.Tensor] = [
+        action_normalizer.normalize(
+            torch.zeros((1, 1, action_dim), dtype=torch.float32, device=device)
+        ).squeeze(0).squeeze(0)
+    ]
 
     while True:
-        curr_slider = _read_slider_values(window, action_dim)
+        curr_slider = _read_slider_values(window, slider_labels)
         action_np, changed = compute_slider_delta_action(
             prev_slider=prev_slider,
             curr_slider=curr_slider,
@@ -225,7 +273,18 @@ def run(args: argparse.Namespace) -> None:
         )
         if changed:
             action_t = torch.tensor(action_np, dtype=torch.float32, device=device).unsqueeze(0)
-            curr_latent = _step_latent(model, curr_latent, action_t)
+            # Important: dynamics expects normalized actions (same convention as replay/train).
+            action_t_norm = action_normalizer.normalize(action_t.unsqueeze(1)).squeeze(1)
+            action_history_norm.append(action_t_norm[0])
+            action_seq_t = torch.stack(action_history_norm, dim=0).unsqueeze(0)
+            print(
+                f"[dynamics] step={step_idx + 1} source=slider "
+                f"delta_action_raw={_format_action(action_np)} "
+                f"delta_action_norm={_format_action(action_t_norm[0].detach().cpu().numpy())} "
+                f"hist_len={action_seq_t.shape[1]}",
+                flush=True,
+            )
+            curr_latent = _step_latent(model, init_latent, action_seq_t)
             prev_slider = curr_slider
             step_idx += 1
 
@@ -244,16 +303,32 @@ def run(args: argparse.Namespace) -> None:
         if key in (ord("q"), 27):
             break
         if key == ord("n"):
+            zero_np = np.zeros((action_dim,), dtype=np.float32)
             zero_t = torch.zeros((1, action_dim), dtype=torch.float32, device=device)
-            curr_latent = _step_latent(model, curr_latent, zero_t)
+            zero_t_norm = action_normalizer.normalize(zero_t.unsqueeze(1)).squeeze(1)
+            action_history_norm.append(zero_t_norm[0])
+            action_seq_t = torch.stack(action_history_norm, dim=0).unsqueeze(0)
+            print(
+                f"[dynamics] step={step_idx + 1} source=key_n "
+                f"delta_action_raw={_format_action(zero_np)} "
+                f"delta_action_norm={_format_action(zero_t_norm[0].detach().cpu().numpy())} "
+                f"hist_len={action_seq_t.shape[1]}",
+                flush=True,
+            )
+            curr_latent = _step_latent(model, init_latent, action_seq_t)
             step_idx += 1
         elif key == ord("r"):
             curr_latent = init_latent.clone()
             step_idx = 0
-            prev_slider = _read_slider_values(window, action_dim)
+            prev_slider = _read_slider_values(window, slider_labels)
+            action_history_norm = [
+                action_normalizer.normalize(
+                    torch.zeros((1, 1, action_dim), dtype=torch.float32, device=device)
+                ).squeeze(0).squeeze(0)
+            ]
         elif key == ord("c"):
-            for i in range(action_dim):
-                cv2.setTrackbarPos(f"a{i}", window, 100)
+            for label in slider_labels:
+                cv2.setTrackbarPos(label, window, 100)
             prev_slider = np.zeros((action_dim,), dtype=np.float32)
 
     cv2.destroyAllWindows()
@@ -273,6 +348,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--frame-idx", type=int, default=0)
     parser.add_argument("--obs-key", type=str, default="camera_1_color")
+    parser.add_argument(
+        "--joint-names",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated slider labels (must match action dim). "
+            "Default for 7-DoF is ARX5 order: "
+            "shoulder_pan,shoulder_lift,elbow_flex,wrist_flex,wrist_roll,wrist_rotate,gripper."
+        ),
+    )
     parser.add_argument("--action-scale", type=float, default=1.0)
     parser.add_argument("--slider-epsilon", type=float, default=1e-6)
     parser.add_argument("--fps", type=int, default=30)

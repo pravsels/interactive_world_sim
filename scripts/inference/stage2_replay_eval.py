@@ -232,9 +232,12 @@ def run(args: argparse.Namespace) -> None:
                 z0 = model.encoder_forward(first_norm)  # (1, C, H, W)
 
             act = torch.from_numpy(action_np).unsqueeze(0).to(device=device, dtype=torch.float32)  # (1, T, A)
+            # Important: dynamics expects normalized actions (same convention as training).
             act_norm = model.normalizer["action"].normalize(act)
 
             with torch.no_grad():
+                # Context length is handled inside model.dynamics_forward via sliding window:
+                # it keeps at most model.n_tokens frames (configured from cfg.n_frames).
                 z_roll = model.dynamics_forward(z0[:, None], act_norm)  # (1, T-1, C, H, W)
             z_full = torch.cat([z0[:, None], z_roll], dim=1)[:, :n]  # (1, T, C, H, W)
             stage_pbar.set_postfix_str("rollout")
