@@ -54,6 +54,10 @@
 - 2026-03-16 22:03 UTC - resubmitted after fix:
   - `git pull --ff-only origin main` on Isambard updated repo to commit `ba80a84`.
   - new job submitted: `sbatch slurm/iws_train_stage3_slurm.sh` -> job id `2906576`.
+- 2026-03-16 22:06 UTC - resumed from prior checkpoint:
+  - cancelled fresh run `2906576` per request.
+  - resubmitted with `LOAD_CKPT_PATH=/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-16/13-52-11/checkpoints/epoch=0-step=30000.ckpt`.
+  - new resumed job id: `2906591` (running).
 
 ## Results
 - state: `failed`
@@ -64,5 +68,5 @@
 - checkpoint path: `not reached for this segment`
 
 ## Next
-- monitor new `slurm-2906576.out/.err` through first validation boundary.
+- monitor new `slurm-2906591.out/.err` through first validation boundary.
 - sync W&B offline run once a healthy segment completes.
