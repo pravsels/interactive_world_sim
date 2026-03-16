@@ -62,19 +62,17 @@ DEFAULT_LOAD_CKPT_PATH="${DEFAULT_LOAD_CKPT_PATH:-/scratch/u6cr/pravsels.u6cr/in
 LOAD_CKPT_PATH="${LOAD_CKPT_PATH:-${DEFAULT_LOAD_CKPT_PATH}}"
 
 LOAD_ARGS=""
+RESUME_BIND_ARGS=""
 if [[ -n "${LOAD_CKPT_PATH}" ]]; then
   if [[ ! -e "${LOAD_CKPT_PATH}" ]]; then
     echo "Resume checkpoint not found: ${LOAD_CKPT_PATH}" >&2
     exit 1
   fi
-  # Convert host scratch path to the in-container bind mount path when possible.
-  LOAD_CKPT_CONTAINER_PATH="${LOAD_CKPT_PATH}"
-  if [[ "${LOAD_CKPT_PATH}" == "${OUTPUTS_DIR}"/* ]]; then
-    LOAD_CKPT_CONTAINER_PATH="/workspace/outputs/${LOAD_CKPT_PATH#${OUTPUTS_DIR}/}"
-  fi
-  # Keep using the same checkpoint file; just escape '=' for Hydra override parsing.
-  LOAD_CKPT_HYDRA_PATH="${LOAD_CKPT_CONTAINER_PATH//=/\\=}"
-  LOAD_ARGS="${LOAD_ARGS} load=${LOAD_CKPT_HYDRA_PATH}"
+  # Bind the exact host checkpoint path to a stable container path without '='
+  # so Hydra override parsing remains simple and robust.
+  LOAD_CKPT_CONTAINER_PATH="/mnt/resume.ckpt"
+  RESUME_BIND_ARGS="--bind ${LOAD_CKPT_PATH}:${LOAD_CKPT_CONTAINER_PATH}"
+  LOAD_ARGS="${LOAD_ARGS} load=${LOAD_CKPT_CONTAINER_PATH}"
 fi
 
 TRAIN_EXTRA_ARGS="${TRAIN_EXTRA_ARGS:-}"
@@ -124,6 +122,7 @@ srun --ntasks=1 --gpus=1 --cpu-bind=cores \
 apptainer exec --nv \
   --bind "${REPO_DIR}:/workspace" \
   --bind "${DATA_DIR}:/workspace/data" \
+  ${RESUME_BIND_ARGS} \
   --bind "${WAN_H5_PATH}:${WAN_H5_CONTAINER_PATH}" \
   --bind "${WAN_STATS_JSON_PATH}:${WAN_STATS_JSON_CONTAINER_PATH}" \
   --bind "${OUTPUTS_DIR}:/workspace/outputs" \
