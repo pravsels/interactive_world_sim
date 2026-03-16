@@ -51,6 +51,9 @@
 - fix prepared and validated:
   - patched `get_validation_dataset()` to set `val_set.sequence_length = val_set.val_horizon`.
   - reproduced failure on synthetic h5 before patch; validation sample succeeds after patch (`action` shape `(200, 7)`).
+- 2026-03-16 22:03 UTC - resubmitted after fix:
+  - `git pull --ff-only origin main` on Isambard updated repo to commit `ba80a84`.
+  - new job submitted: `sbatch slurm/iws_train_stage3_slurm.sh` -> job id `2906576`.
 
 ## Results
 - state: `failed`
@@ -61,7 +64,5 @@
 - checkpoint path: `not reached for this segment`
 
 ## Next
-- sync patched dataset file to Isambard repo.
-- resubmit: `sbatch slurm/iws_train_stage3_slurm.sh`
-- monitor new `slurm-<jobid>.out/.err` through first validation boundary.
+- monitor new `slurm-2906576.out/.err` through first validation boundary.
 - sync W&B offline run once a healthy segment completes.
