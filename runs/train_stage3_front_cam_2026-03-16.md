@@ -57,7 +57,10 @@
 - 2026-03-16 22:06 UTC - resumed from prior checkpoint:
   - cancelled fresh run `2906576` per request.
   - resubmitted with `LOAD_CKPT_PATH=/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-16/13-52-11/checkpoints/epoch=0-step=30000.ckpt`.
-  - new resumed job id: `2906591` (running).
+  - first resume attempt `2906591` failed immediately (`mismatched input '=' expecting <EOF>`) because Hydra parsed `load=...epoch=0-step=30000.ckpt`.
+  - created symlink without `=` in filename:
+    `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-16/13-52-11/checkpoints/stage3_step30000_resume.ckpt`.
+  - resubmitted with symlink path -> new job id `2906603` (running).
 
 ## Results
 - state: `failed`
@@ -65,8 +68,8 @@
 - runtime window: `2026-03-16T13:51:57Z` -> `2026-03-16T21:14:04Z` (~`7h22m`)
 - failure stage: `validation dataloader` at first validation pass (`step 30000`)
 - error class: `ValueError` (sequence padding mismatch)
-- checkpoint path: `not reached for this segment`
+- checkpoint path: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-16/13-52-11/checkpoints/epoch=0-step=30000.ckpt`
 
 ## Next
-- monitor new `slurm-2906591.out/.err` through first validation boundary.
+- monitor new `slurm-2906603.out/.err` through first validation boundary.
 - sync W&B offline run once a healthy segment completes.

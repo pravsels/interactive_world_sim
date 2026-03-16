@@ -55,10 +55,34 @@ WAN_STATS_JSON_CONTAINER_PATH="${WAN_STATS_JSON_CONTAINER_PATH:-/mnt/wan_dataset
 DATASET_OVERRIDE_ARGS="${DATASET_OVERRIDE_ARGS:-dataset.h5_path=${WAN_H5_CONTAINER_PATH} dataset.stats_json_path=${WAN_STATS_JSON_CONTAINER_PATH}}"
 
 # Resume helper for 1-day walltime jobs.
-# - LOAD_CKPT_PATH: absolute/local path to a stage-3 checkpoint to continue from.
+# Keep this default in-script so resubmission remains a plain:
+#   sbatch slurm/iws_train_stage3_slurm.sh
+# Set to empty string to disable resume.
+DEFAULT_LOAD_CKPT_PATH="${DEFAULT_LOAD_CKPT_PATH:-/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-16/13-52-11/checkpoints/epoch=0-step=30000.ckpt}"
+LOAD_CKPT_PATH="${LOAD_CKPT_PATH:-${DEFAULT_LOAD_CKPT_PATH}}"
+
+# Hydra override grammar treats '=' specially. If checkpoint filenames include '=',
+# create a stable symlink without '=' under OUTPUTS_DIR (which is bind-mounted to /workspace/outputs).
+if [[ -n "${LOAD_CKPT_PATH}" && "${LOAD_CKPT_PATH}" == *"="* ]]; then
+  RESUME_LINK_DIR="${OUTPUTS_DIR}/resume_ckpts"
+  mkdir -p "${RESUME_LINK_DIR}"
+  SAFE_LOAD_CKPT_PATH="${RESUME_LINK_DIR}/stage3_resume_step30000.ckpt"
+  ln -sfn "${LOAD_CKPT_PATH}" "${SAFE_LOAD_CKPT_PATH}"
+  LOAD_CKPT_PATH="${SAFE_LOAD_CKPT_PATH}"
+fi
+
 LOAD_ARGS=""
-if [[ -n "${LOAD_CKPT_PATH:-}" ]]; then
-  LOAD_ARGS="${LOAD_ARGS} load=${LOAD_CKPT_PATH}"
+if [[ -n "${LOAD_CKPT_PATH}" ]]; then
+  if [[ ! -e "${LOAD_CKPT_PATH}" ]]; then
+    echo "Resume checkpoint not found: ${LOAD_CKPT_PATH}" >&2
+    exit 1
+  fi
+  # Convert host scratch path to the in-container bind mount path when possible.
+  LOAD_CKPT_CONTAINER_PATH="${LOAD_CKPT_PATH}"
+  if [[ "${LOAD_CKPT_PATH}" == "${OUTPUTS_DIR}"/* ]]; then
+    LOAD_CKPT_CONTAINER_PATH="/workspace/outputs/${LOAD_CKPT_PATH#${OUTPUTS_DIR}/}"
+  fi
+  LOAD_ARGS="${LOAD_ARGS} load=${LOAD_CKPT_CONTAINER_PATH}"
 fi
 
 TRAIN_EXTRA_ARGS="${TRAIN_EXTRA_ARGS:-}"
@@ -91,6 +115,9 @@ echo "PYTHON_EXT_DIR=${PYTHON_EXT_DIR}"
 echo "CONFIG_NAME=${CONFIG_NAME}"
 if [[ -n "${LOAD_CKPT_PATH:-}" ]]; then
   echo "LOAD_CKPT_PATH=${LOAD_CKPT_PATH}"
+  if [[ -n "${LOAD_CKPT_CONTAINER_PATH:-}" ]]; then
+    echo "LOAD_CKPT_CONTAINER_PATH=${LOAD_CKPT_CONTAINER_PATH}"
+  fi
 fi
 
 start_time="$(date -Is --utc)"
