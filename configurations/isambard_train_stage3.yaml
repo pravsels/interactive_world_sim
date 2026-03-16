@@ -1,0 +1,55 @@
+# Hydra config loaded directly by python main.py
+defaults:
+  - config
+  - override experiment: exp_latent_dyn
+  - override dataset: arx5_h5_dataset
+  - override algorithm: latent_world_model
+  - _self_
+
+name: stage3_front_cam
+
+wandb:
+  entity: pravsels
+  project: interactive_world_sim
+  mode: offline
+
+dataset:
+  # h5_path is injected at submit time by slurm script (WAN_H5_PATH -> dataset.h5_path).
+  # stats_json_path is injected at submit time by slurm script.
+  # Camera convention: camera_0_color = wrist, camera_1_color = front.
+  stats_json_path: /mnt/wan_dataset_stats.json
+  horizon: 1
+  val_horizon: 200
+  obs_keys: [camera_1_color]
+
+experiment:
+  training:
+    batch_size: 16
+    max_steps: 1000005
+    log_every_n_steps: 100
+    data:
+      num_workers: 4
+    checkpointing:
+      # Daily walltime on Isambard; checkpoint often enough to resume safely.
+      every_n_train_steps: 10000
+  validation:
+    limit_batch: 1.0
+    batch_size: 2
+    val_every_n_step: 30000
+    data:
+      num_workers: 4
+
+algorithm:
+  latent_dim: 512
+  action_dim: 7
+  training_stage: 3
+  val_render: False
+  sampling_strategy: terminal_only
+  noise_scheduler:
+    loss_weighting: uniform
+  # Stage-3 initialization from our Stage-2 baseline checkpoint.
+  load_ae: /workspace/outputs/2026-03-15/17-44-19/checkpoints/epoch=0-step=20000.ckpt
+
+# Resume helper for interrupted Stage-3 jobs.
+# Leave null for a fresh Stage-3 launch.
+load: null

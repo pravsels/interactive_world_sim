@@ -11,10 +11,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
+    libgl1 \
+    libgtk-3-0 \
     python3.11 \
     python3.11-dev \
     libhdf5-dev \
     libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
     libvulkan1 \
     mesa-vulkan-drivers \
     pkg-config \
