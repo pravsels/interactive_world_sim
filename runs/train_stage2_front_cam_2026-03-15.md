@@ -71,17 +71,28 @@
 - 2026-03-15 17:36 UTC - submitted `2874967` with tuned config (`batch_size=32`, `16-mixed`) and canceled shortly after to relaunch cleanly.
 - 2026-03-15 17:39 UTC - submitted `2875003` with tuned config (`batch_size=32`, `16-mixed`) on `nid010653`.
 - 2026-03-15 17:44 UTC - run `2875003` canceled to test higher dataloader throughput.
-- 2026-03-15 17:44 UTC - submitted `2875089` with `num_workers=8/8`; run is `RUNNING` on `nid010008`.
+- 2026-03-15 17:44 UTC - submitted `2875089` with `num_workers=8/8` on `nid010008`.
 - telemetry sample for `2875089` after startup: VRAM climbs to `39162 MiB` with bursty GPU util (`100%, 0%, 47%, 29%` over successive 5s samples).
+- 2026-03-16 01:39 UTC - job `2875089` finished with scheduler state `COMPLETED`, elapsed `07:55:12`, exit code `0:0`.
+- final slurm progress line before exit: `Epoch 0/-2 ... 23015/40172 ... 0.77 it/s`.
+- training emitted `NaN in gradient of module.out.1.weight`; run appears to stop early for numerical instability (not walltime or max_steps).
+- synced W&B run: `https://wandb.ai/pravsels/interactive_world_sim/runs/7skk0qh6`
 
 ## Results
-- state: `running` (active job: `2875089`)
-- training loss: `pending`
+- state: `completed` (job `2875089`, ended early due to NaN-gradient instability)
+- training loss (`training/loss`, W&B): `0.014964337 -> 3.7573023e-05` (min `2.3631907e-05`)
+- logged global steps (W&B): `99 -> 22999` (230 points)
 - validation metrics: `pending`
-- checkpoint path: `pending`
-- wandb offline run id: `pending`
+- checkpoint path: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-15/17-44-19/checkpoints/epoch=0-step=20000.ckpt`
+- wandb offline run id: `7skk0qh6`
+- wandb synced run: `https://wandb.ai/pravsels/interactive_world_sim/runs/7skk0qh6`
+- hf artifact repo: `https://huggingface.co/pravsels/interactive-world-sim-checkpoints`
+- hf artifact folder: `stage2_front_cam_step20000/`
+
+## Verdict
+- practical stage-2 learning appears to have plateaued for this run segment before instability.
+- freeze this checkpoint (`step=20000`) as the current stage-2 baseline rather than immediately continuing training.
 
 ## Next
-- monitor first logged train metrics and first saved stage-2 checkpoint.
-- record final state (`COMPLETED` / `TIMEOUT` / `FAILED`) with elapsed time and exit code.
-- sync W&B offline run and append the synced run URL.
+- use `epoch=0-step=20000.ckpt` for downstream evaluation/integration.
+- only resume stage-2 training if downstream metrics show a clear need for further improvement.

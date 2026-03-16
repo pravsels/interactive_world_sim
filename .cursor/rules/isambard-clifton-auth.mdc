@@ -1,0 +1,12 @@
+---
+description: Handle Isambard SSH auth expiry via Clifton
+alwaysApply: true
+---
+
+# Isambard Clifton Auth
+
+- Isambard SSH certificates expire every ~12 hours and are refreshed with `clifton auth`.
+- If SSH fails with `Permission denied (publickey)` or `Connection closed by remote host`, stop retries.
+- Ask the user to run `clifton auth`, then continue only after they confirm auth is complete.
+- Do not attempt to run `clifton auth` from the agent.
+- After user confirmation, retry exactly the original SSH command.
