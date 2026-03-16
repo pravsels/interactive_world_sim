@@ -80,6 +80,7 @@
 
 ## Results
 - state: `completed` (job `2875089`, ended early due to NaN-gradient instability)
+- runtime: `07:55:12` (start `2026-03-15 17:44:05 UTC`, end `2026-03-16 01:39:17 UTC`)
 - training loss (`training/loss`, W&B): `0.014964337 -> 3.7573023e-05` (min `2.3631907e-05`)
 - logged global steps (W&B): `99 -> 22999` (230 points)
 - validation metrics: `pending`
