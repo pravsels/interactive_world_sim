@@ -309,6 +309,8 @@ This was present in the codebase from the initial commit (not a debugging artifa
 - checkpoint: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-13/10-25-30/checkpoints/epoch=0-step=64000.ckpt`
 - wandb offline dir: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-13/10-25-30/wandb/offline-run-20260313_102540-7gximny3`
 - wandb synced run: `https://wandb.ai/pravsels/interactive_world_sim/runs/7gximny3`
+- hf artifact repo: `https://huggingface.co/pravsels/interactive-world-sim-checkpoints`
+- hf artifact folder: `stage1_front_cam_step64000/`
 
 ## Next
 - resume from `epoch=0-step=64000.ckpt` in the next 1-day run.
