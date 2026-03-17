@@ -54,10 +54,12 @@
 - 2026-03-16 22:03 UTC - fix landed and synced:
   - dataset validation sequence-length fix committed/pushed.
   - Isambard repo pulled to latest `main`.
-- 2026-03-16 22:11 UTC - resume flow cleaned up in script:
-  - `slurm/iws_train_stage3_slurm.sh` now handles resume checkpoint path normalization (Hydra-safe name and container-visible path) so submission stays plain `sbatch`.
-- 2026-03-16 22:1x UTC - current rerun submitted cleanly:
-  - `sbatch slurm/iws_train_stage3_slurm.sh` -> active job `2906647`.
+- 2026-03-16 22:21 UTC - current rerun submitted cleanly:
+  - `sbatch slurm/iws_train_stage3_slurm.sh` -> active job `2906741`.
+  - resume confirmed in logs:
+    - `Will load checkpoint from /mnt/resume.ckpt`
+    - `Restoring states from the checkpoint path at /mnt/resume.ckpt`
+    - `Restored all states from the checkpoint at /mnt/resume.ckpt`
 
 ## Results
 - state: `failed`
@@ -68,5 +70,5 @@
 - checkpoint path: `/scratch/u6cr/pravsels.u6cr/interactive_world_sim/outputs/2026-03-16/13-52-11/checkpoints/epoch=0-step=30000.ckpt`
 
 ## Next
-- monitor `slurm-2906647.out/.err` through first validation boundary.
+- monitor `slurm-2906741.out/.err` through first validation boundary.
 - sync W&B offline run once a healthy segment completes.

@@ -185,7 +185,7 @@ def run(args: argparse.Namespace) -> None:
 
     cfg = OmegaConf.load(args.config_snapshot)
     cfg.algorithm.device = args.device
-    cfg.algorithm.training_stage = 2
+    cfg.algorithm.training_stage = args.training_stage
     cfg.algorithm.val_render = False
     cfg.dataset.h5_path = str(args.h5_path)
     # Local eval should not require the original stage-1 pretrain path from training.
@@ -347,6 +347,13 @@ def parse_args() -> argparse.Namespace:
         help="If set, use trajectory_<idx> (overrides --trajectory).",
     )
     parser.add_argument("--frame-idx", type=int, default=0)
+    parser.add_argument(
+        "--training-stage",
+        type=int,
+        default=2,
+        choices=[1, 2, 3],
+        help="Model training stage for checkpoint loading (default: 2).",
+    )
     parser.add_argument("--obs-key", type=str, default="camera_1_color")
     parser.add_argument(
         "--joint-names",

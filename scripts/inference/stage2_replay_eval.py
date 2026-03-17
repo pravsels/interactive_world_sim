@@ -131,7 +131,7 @@ def run(args: argparse.Namespace) -> None:
     cfg = OmegaConf.load(args.config_snapshot)
     cfg.dataset.h5_path = str(args.h5_path)
     cfg.algorithm.device = args.device
-    cfg.algorithm.training_stage = 2
+    cfg.algorithm.training_stage = args.training_stage
     cfg.algorithm.val_render = False
     # Local eval should not require the original stage-1 pretrain path from training.
     cfg.algorithm.load_ae = None
@@ -356,6 +356,13 @@ def parse_args() -> argparse.Namespace:
         help="Override action dataset key (default: from config dataset.action_key, usually actions_delta).",
     )
     parser.add_argument("--max-trajectories", type=int, default=3)
+    parser.add_argument(
+        "--training-stage",
+        type=int,
+        default=2,
+        choices=[1, 2, 3],
+        help="Model training stage for checkpoint loading (default: 2).",
+    )
     parser.add_argument(
         "--trajectory-idx",
         type=int,

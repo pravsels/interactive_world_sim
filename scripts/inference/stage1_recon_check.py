@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Quick Stage-1 reconstruction quality check on a local ARX5 H5 file.
+"""Quick reconstruction quality check on a local ARX5 H5 file.
 
 This script:
-1) Loads a Stage-1 checkpoint
+1) Loads a checkpoint
 2) Samples frames from trajectory_* groups in an H5 file
 3) Encodes + decodes those frames
 4) Saves side-by-side GT/reconstruction images
@@ -164,9 +164,11 @@ def run(args: argparse.Namespace) -> None:
 
     cfg = OmegaConf.load(args.config_snapshot)
     cfg.dataset.h5_path = str(args.h5_path)
-    cfg.algorithm.training_stage = 1
+    cfg.algorithm.training_stage = args.training_stage
     cfg.algorithm.device = args.device
     cfg.algorithm.val_render = True
+    # Local checkpoint eval should not depend on historical pretrain paths.
+    cfg.algorithm.load_ae = None
 
     obs_key = args.obs_key
     camera_dataset_key = _resolve_camera_dataset_key(cfg.dataset, obs_key)
@@ -244,7 +246,7 @@ def run(args: argparse.Namespace) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Stage-1 checkpoint reconstruction check")
+    parser = argparse.ArgumentParser(description="Checkpoint reconstruction check")
     parser.add_argument(
         "--checkpoint",
         type=Path,
@@ -298,6 +300,13 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="cuda" if torch.cuda.is_available() else "cpu",
         help="Torch device (cuda or cpu).",
+    )
+    parser.add_argument(
+        "--training-stage",
+        type=int,
+        default=1,
+        choices=[1, 2, 3],
+        help="Model training stage for checkpoint loading (default: 1).",
     )
     parser.add_argument(
         "--seed",
